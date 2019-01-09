@@ -257,7 +257,7 @@ def runmean(x,window=3,fillaround=False):
         window=3
     
     # This option will apply increasing windows on borders
-    # so that the len(outseries)=lin(inseries)
+    # so that the len(outseries)=len(inseries)
     if fillaround:
         increasingWindows=np.arange(3,window+1,2)
         print(increasingWindows)
@@ -265,8 +265,8 @@ def runmean(x,window=3,fillaround=False):
         for w in range(len(increasingWindows)):
             halfwindow=int((increasingWindows[w]-1)/2)
             print(halfwindow)
-            for t in range(len(time)):
-                if t>=halfwindow and t<(len(time)-halfwindow):
+            for t in range(len(x)):
+                if t>=halfwindow and t<(len(x)-halfwindow):
                     x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
                 else:
                     if halfwindow==1:
@@ -276,8 +276,8 @@ def runmean(x,window=3,fillaround=False):
     else:
         x_rm=np.zeros(np.shape(x))
         halfwindow=int((window-1)/2)
-        for t in range(len(time)):
-            if t>=halfwindow and t<(len(time)-halfwindow):
+        for t in range(len(x)):
+            if t>=halfwindow and t<(len(x)-halfwindow):
                 x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
             else:
                 x_rm[t]=np.nan
