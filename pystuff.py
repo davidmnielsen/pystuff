@@ -205,7 +205,9 @@ def getbox(coords,lat,lon,data):
     latf=coords[1]
     loni=coords[2]
     lonf=coords[3]
-    
+
+    # You can make this smarter to accept other polygons than rectangles
+    # with len(coords) or something...    
     boxlat=[lati,lati,latf,latf,lati]
     boxlon=[loni,lonf,lonf,loni,loni]
 
@@ -232,4 +234,52 @@ def getbox(coords,lat,lon,data):
 
     return inbox, meanbox
 
-
+def runmean(x,window=3,fillaround=False):
+    
+    '''
+    Calculates a running mean of a given series x, using a window
+    of given length. The window must be odd, ideally. Otherwise, 
+    an approximation will be made.
+    '''
+    
+    import numpy as np
+    
+    # Check for even window
+    if (window % 2)==0:
+        print('Window given is even.')
+        print('Using window=%.0f instead.' %(window-1))
+        window=window-1
+    
+    # Check for a too small window
+    if window<3:
+        print('Window given is too small.')
+        print('Using minimum window=3 instead.')
+        window=3
+    
+    # This option will apply increasing windows on borders
+    # so that the len(outseries)=lin(inseries)
+    if fillaround:
+        increasingWindows=np.arange(3,window+1,2)
+        print(increasingWindows)
+        x_rm=np.zeros(np.shape(x))
+        for w in range(len(increasingWindows)):
+            halfwindow=int((increasingWindows[w]-1)/2)
+            print(halfwindow)
+            for t in range(len(time)):
+                if t>=halfwindow and t<(len(time)-halfwindow):
+                    x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
+                else:
+                    if halfwindow==1:
+                        x_rm[t]=x[t]
+                    else:
+                        x_rm[t]=x_rm[t]
+    else:
+        x_rm=np.zeros(np.shape(x))
+        halfwindow=int((window-1)/2)
+        for t in range(len(time)):
+            if t>=halfwindow and t<(len(time)-halfwindow):
+                x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
+            else:
+                x_rm[t]=np.nan
+                
+    return x_rm
