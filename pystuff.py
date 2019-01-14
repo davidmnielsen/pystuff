@@ -144,19 +144,21 @@ def ddpca(x):
 
 ##### 3) Remove Linear Trend #####
 
-def ddetrend(var,xvar=321943587416321):
-    
+def ddetrend(var,xvar=321943587416321,returnTrend=False):
+
     """
-    21.10.2018
+    14.01.2019
     """
 
     import numpy as np
     from scipy import stats
-    
+
     # If x is not given, use sequence
     if type(xvar)==int and xvar==321943587416321:
-        xvar=range(len(var))
-    
+        xvar=np.arange(0,len(var))
+        print(np.shape(xvar))
+        print(np.shape(var))
+
     # Check and fix any NaN's
     if np.isnan(var).any():
         myvar=np.array(var)
@@ -167,12 +169,12 @@ def ddetrend(var,xvar=321943587416321):
     else:
         var_clean=var.copy()
         xvar_clean=xvar.copy()
-    
+
     # Make linear model, calculate and remove trend
     slope, intercept, _, _, _ = stats.linregress(xvar_clean,var_clean)
     trend=np.array(xvar_clean)*slope+intercept
     var_dt=var_clean-trend+np.mean(var_clean)
-    
+
     # Put NaN's back in their places
     if np.isnan(var).any():
         var_dt_clean=np.zeros(np.shape(myvar))
@@ -189,10 +191,13 @@ def ddetrend(var,xvar=321943587416321):
     else:
         var_dt_clean=var_dt.copy()
         trend_clean=trend.copy()
+    
+    if returnTrend:
+        return var_dt_clean, slope, trend_clean
+    else:
+        return var_dt_clean
 
-    return var_dt_clean, slope, trend_clean
-
-
+##### 4) Get Box
 
 def getbox(coords,lat,lon,data):
     
