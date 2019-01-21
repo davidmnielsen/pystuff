@@ -2,42 +2,29 @@
 # -*- coding: utf-8 -*-
 
 """
-This script is intended to put some usefull functions together, (organize my life/code,) and allow for some flexibility (in opposition to using built-in funcions of other software).
+This script is intended to put some usefull statistical methods together, and to have them explicitly calculated,
+allowing some exploration (in spite of using given built-in functions).
 Content:
-	1) bootscorr: calculates linear correlation coeffitient and significance level given n (default 10k) Bootstrap iterations.
-	2) ddpca: performs a Principal Component Analysis (PCA) of a given dataset (centers and standardizes data), using its correlation matrix.
-	3) ddetrend: removes linear trend (automatically treats NaN's)
-	4) getbox: calculats the area mean (does not weight). Returns the mean (a float) and the map with NaN's outside the area.
-	5) runmean: calculates running mean of given window size on x, and returns a series with same lenght as x
-	6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
+1) Bootstrap Correlations
+2) Principal Component Analysis (PCA) on centered and standardized data, using Correlation matrix.
+3) Remove linear trend (automatically treats NaN's)
+4) Area mean (does not weight). Returns the mean (a float) and the map with NaN's outside the area.
 
-
-Found a bug? Please let me know:
-davidnielsen@id.uff.br
+Updated on 25/09/2018
+David Nielsen
+david.buzios@gmail.com
 """
-def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
+
+def bootscorr(x, y, n, conflev=0.05, positions='new'):
 
     """
     IN:
-        x: numpy array, time series
-        y: numpy array, time series
-        n: number of bootstrap iterations (default = 10k)
-        conflev: you get it.
-        positions: if "new", random pairwise positions (with replacement) will be generated.
-        Otherwise, supply with numpy array with positions (same length as x and y, n-dimension in the columns). 
-        details: Boolean, controls the output (defauls=False)
-    
-    OUT:
-        if details==False: 
-            r0  = linear pearson correlation coefficient between x and y [-1,1]
-            lev = minimum significance level for which r0 is different than zero [0,1]
-    
-    USAGE: 
-    r, s = bootscorr(x,y)
-    
-    Found a bug? Please let me know:
-    davidnielsen@id.uff.br
-        
+    x: numpy array, time series
+    y: numpy array, time series
+    n: number of bootstrap iterations
+    conflev: yes, right.
+    positions: if "new", random pairwise positions (with replacement) will be generated.
+    Otherwise, supply with numpy array with positions (same length as x and y, n-dimension in the columns). 
     """
 
     import numpy as np
@@ -89,14 +76,18 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
                 schufy[ii,nn]=y[int(rand[ii,nn])]
 
         # 3) Calculate correlations
-        r0=np.corrcoef(x,y)[0,1]
+        from scipy import stats
+        r0=stats.pearsonr(x,y)[0]
         corr=np.zeros(n)
+        percentages=[10,20,30,40,50,60,70,80,90,100]
         for nn in range(n):
-            corr[nn]=np.corrcoef(schufx[:,nn],schufy[:,nn])[0,1]
+            #if any(item==(nn*100/n) for item in percentages):
+                #print('boorscorr %d.0 %%' %(nn*100/n))
+            corr[nn]=stats.pearsonr(schufx[:,nn],schufy[:,nn])[0]
 
-        # 4) Significance test for given p-value (=1-conflev)
+        # 4) Significance test
         sort=sorted(corr)
-        tail=(1-conflev)/2
+        tail=conflev/2
         qinf=round(n*tail)
         qsup=round(n-qinf)
         rinf=sort[qinf]
@@ -105,25 +96,8 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
             sig=1
         else:
             sig=0
-        
-        # 5) Check all possible p-values within n to get minimum significance level (minsig)
-        minsig=np.nan
-        tails=np.arange(0.01,0.5,0.00001)
-        for i in range(len(tails)):
-            if np.isnan(minsig):
-                tail=tails[i]/2
-                qinf=round(n*tail)
-                qsup=round(n-qinf)
-                rrinf=sort[int(qinf)]
-                rrsup=sort[int(qsup)]
-                if rrinf>0 or rrsup<0:
-                    minsig=tail*2
-                    lev=(1-minsig)
-        
-    if details:
-        return r0, lev, rinf, rsup, sig, rand
-    else:
-        return r0, lev
+
+        return r0, rinf, rsup, sig, rand
 
 
 #####################
@@ -265,8 +239,6 @@ def getbox(coords,lat,lon,data):
 
     return inbox, meanbox
 
-########## 5) Running mean
-
 def runmean(x,window=3,fillaround=False):
     
     '''
@@ -316,13 +288,3 @@ def runmean(x,window=3,fillaround=False):
                 x_rm[t]=np.nan
                 
     return x_rm
-
-#################### 6) ddreg
-    
-def ddreg(x,y):
-    from scipy import stats
-    slope, inter, _, _, _ = stats.linregress(x,y)
-    trend=np.array(x)*slope+inter
-    return trend
-
-
