@@ -109,7 +109,7 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
         # 5) Check all possible p-values within n to get minimum significance level (minsig)
         lev=np.nan
         minsig=np.nan
-        tails=np.arange(0.01,0.5,0.00001)
+        tails=np.arange(0.001,0.9,0.0001) # confidence level from 99.9% to 10%, changing every 0.01%
         for i in range(len(tails)):
             if np.isnan(minsig):
                 tail=tails[i]/2
