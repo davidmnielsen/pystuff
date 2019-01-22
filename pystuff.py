@@ -10,7 +10,7 @@ Content:
 	4) getbox: calculats the area mean (does not weight). Returns the mean (a float) and the map with NaN's outside the area.
 	5) runmean: calculates running mean of given window size on x, and returns a series with same lenght as x
 	6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
-
+        7) Standardize (and center) time series
 
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
@@ -107,6 +107,7 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
             sig=0
         
         # 5) Check all possible p-values within n to get minimum significance level (minsig)
+        lev=np.nan
         minsig=np.nan
         tails=np.arange(0.01,0.5,0.00001)
         for i in range(len(tails)):
@@ -320,9 +321,20 @@ def runmean(x,window=3,fillaround=False):
 #################### 6) ddreg
     
 def ddreg(x,y):
+    import numpy as np
     from scipy import stats
     slope, inter, _, _, _ = stats.linregress(x,y)
     trend=np.array(x)*slope+inter
     return trend
 
+################## 7) Standardize
+
+def standardize(x,center=True):
+    import numpy as np
+    xn = np.full(np.shape(x),np.nan)
+    if center:
+        xn = (x - np.nanmean(x))/np.nanstd(x)
+    else:
+        xn = x/np.nanstd(x)
+    return xn
 
