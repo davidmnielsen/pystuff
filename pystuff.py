@@ -226,7 +226,7 @@ def ddetrend(var,xvar=321943587416321,returnTrend=False):
 
 ##### 4) Get Box
 
-def getbox(coords,lat,lon,data):
+def getbox(coords,lat,lon,data,returnmap=False):
     
     # data must be [time, lat, lon] or [lat, lon]
     # coords must be [lati,latf,loni,lonf]
@@ -263,8 +263,11 @@ def getbox(coords,lat,lon,data):
         print('ERROR: Number of dimensions must be 2 or 3.')
         meanbox=np.zeros(np.shape(inbox))
         return meanbox
-
-    return inbox, meanbox
+    
+    if returnmap:
+        return meanbox, inbox
+    else:
+        return meanbox
 
 ########## 5) Running mean
 
