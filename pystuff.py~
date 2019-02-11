@@ -173,18 +173,14 @@ def ddpca(x):
 
 def ddetrend(var,xvar=321943587416321,returnTrend=False):
 
-    """
-    14.01.2019
-    """
-
     import numpy as np
     from scipy import stats
 
     # If x is not given, use sequence
     if type(xvar)==int and xvar==321943587416321:
         xvar=np.arange(0,len(var))
-        print(np.shape(xvar))
-        print(np.shape(var))
+        #print(np.shape(xvar))
+        #print(np.shape(var))
 
     # Check and fix any NaN's
     if np.isnan(var).any():
@@ -196,6 +192,14 @@ def ddetrend(var,xvar=321943587416321,returnTrend=False):
     else:
         var_clean=var.copy()
         xvar_clean=xvar.copy()
+
+    if var.size == 0:
+        print("Time series provided is all NaN's.")
+        print("Nothing done. Returning the input as is.")
+        if returnTrend:
+            return var, np.nan, np.zeros(np.shape(var))
+        else:
+            return var
 
     # Make linear model, calculate and remove trend
     slope, intercept, _, _, _ = stats.linregress(xvar_clean,var_clean)
@@ -226,7 +230,7 @@ def ddetrend(var,xvar=321943587416321,returnTrend=False):
 
 ##### 4) Get Box
 
-def getbox(coords,lat,lon,data):
+def getbox(coords,lat,lon,data,returnmap=False):
     
     # data must be [time, lat, lon] or [lat, lon]
     # coords must be [lati,latf,loni,lonf]
@@ -263,8 +267,11 @@ def getbox(coords,lat,lon,data):
         print('ERROR: Number of dimensions must be 2 or 3.')
         meanbox=np.zeros(np.shape(inbox))
         return meanbox
-
-    return inbox, meanbox
+    
+    if returnmap:
+        return meanbox, inbox
+    else:
+        return meanbox
 
 ########## 5) Running mean
 

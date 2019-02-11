@@ -173,18 +173,14 @@ def ddpca(x):
 
 def ddetrend(var,xvar=321943587416321,returnTrend=False):
 
-    """
-    14.01.2019
-    """
-
     import numpy as np
     from scipy import stats
 
     # If x is not given, use sequence
     if type(xvar)==int and xvar==321943587416321:
         xvar=np.arange(0,len(var))
-        print(np.shape(xvar))
-        print(np.shape(var))
+        #print(np.shape(xvar))
+        #print(np.shape(var))
 
     # Check and fix any NaN's
     if np.isnan(var).any():
@@ -196,6 +192,14 @@ def ddetrend(var,xvar=321943587416321,returnTrend=False):
     else:
         var_clean=var.copy()
         xvar_clean=xvar.copy()
+
+    if var.size == 0:
+        print("Time series provided is all NaN's.")
+        print("Nothing done. Returning the input as is.")
+        if returnTrend:
+            return var, np.nan, np.zeros(np.shape(var))
+        else:
+            return var
 
     # Make linear model, calculate and remove trend
     slope, intercept, _, _, _ = stats.linregress(xvar_clean,var_clean)
@@ -297,11 +301,11 @@ def runmean(x,window=3,fillaround=False):
     # so that the len(outseries)=len(inseries)
     if fillaround:
         increasingWindows=np.arange(3,window+1,2)
-        print(increasingWindows)
+        #print(increasingWindows)
         x_rm=np.zeros(np.shape(x))
         for w in range(len(increasingWindows)):
             halfwindow=int((increasingWindows[w]-1)/2)
-            print(halfwindow)
+            #print(halfwindow)
             for t in range(len(x)):
                 if t>=halfwindow and t<(len(x)-halfwindow):
                     x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
