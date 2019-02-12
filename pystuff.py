@@ -22,7 +22,7 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
         x: numpy array, time series
         y: numpy array, time series
         n: number of bootstrap iterations (default = 10k)
-        conflev: you get it.
+        conflev: 0.95 and 0.6872 are equivalent to 2 and 1 sigmas, respectively. 
         positions: if "new", random pairwise positions (with replacement) will be generated.
         Otherwise, supply with numpy array with positions (same length as x and y, n-dimension in the columns). 
         details: Boolean, controls the output (defauls=False)
@@ -31,6 +31,11 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
         if details==False: 
             r0  = linear pearson correlation coefficient between x and y [-1,1]
             lev = minimum significance level for which r0 is different than zero [0,1]
+        else:
+            rinf, rsup = lower and upper correlation coefficients, corrsponding to the tails of the distribution
+                         containing conflev*100 percent of all n coefficients in between. 
+            sig  = Boolean. True/False if significant at given conflev.
+            rand = All n arrays of np.shape(x) each, containing the random positions generated.
     
     USAGE: 
     r, s = bootscorr(x,y)
@@ -102,9 +107,9 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
         rinf=sort[qinf]
         rsup=sort[qsup]
         if rinf>0 or rsup<0:
-            sig=1
+            sig=True
         else:
-            sig=0
+            sig=False
         
         # 5) Check all possible p-values within n to get minimum significance level (minsig)
         lev=np.nan
@@ -116,7 +121,8 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
                 qinf=round(n*tail)
                 qsup=round(n-qinf)
                 rrinf=sort[int(qinf)]
-                rrsup=sort[int(qsup)]
+                rrsup=sort[int(qsup-1)]
+                
                 if rrinf>0 or rrsup<0:
                     minsig=tail*2
                     lev=(1-minsig)
@@ -125,7 +131,6 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
         return r0, lev, rinf, rsup, sig, rand
     else:
         return r0, lev
-
 
 #####################
 
