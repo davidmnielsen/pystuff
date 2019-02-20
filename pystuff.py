@@ -176,7 +176,7 @@ def ddpca(x):
 
 ##### 3) Remove Linear Trend #####
 
-def ddetrend(var,xvar=321943587416321,returnTrend=False):
+def ddetrend(var,xvar=321943587416321,returnTrend=False,center=False):
 
     import numpy as np
     from scipy import stats
@@ -209,7 +209,10 @@ def ddetrend(var,xvar=321943587416321,returnTrend=False):
     # Make linear model, calculate and remove trend
     slope, intercept, _, _, _ = stats.linregress(xvar_clean,var_clean)
     trend=np.array(xvar_clean)*slope+intercept
-    var_dt=var_clean-trend+np.mean(var_clean)
+    if center:
+        var_dt=var_clean-trend
+    else:
+        var_dt=var_clean-trend+np.mean(var_clean)
 
     # Put NaN's back in their places
     if np.isnan(var).any():
