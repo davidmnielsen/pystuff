@@ -335,12 +335,15 @@ def runmean(x,window=3,fillaround=False):
 
 #################### 6) ddreg
     
-def ddreg(x,y):
+def ddreg(x,y,returnStats=False):
     import numpy as np
     from scipy import stats
-    slope, inter, _, _, _ = stats.linregress(x,y)
+    slope, inter, r, p, se = stats.linregress(x,y)
     trend=np.array(x)*slope+inter
-    return trend
+    if returnStats:
+        return slope, r, p    
+    else:    
+        return trend
 
 ################## 7) Standardize
 
