@@ -11,7 +11,7 @@ Content:
 	5) runmean: calculates running mean of given window size on x, and returns a series with same lenght as x
 	6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
         7) Standardize (and center) time series
-
+        8) Compresses a time series of length x into a time series of length x-1. Useful to treat leap years.
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
@@ -356,3 +356,18 @@ def standardize(x,center=True):
         xn = x/np.nanstd(x)
     return xn
 
+################## 8) Compress
+def compress(x):
+    import numpy as np
+    lenx=len(x)
+    lenout=lenx-1
+    e=float(1/(lenout))
+    e_acc=0
+    out=np.zeros((lenout,))
+    for i in range(lenout):
+        if i==0:
+            out[i]=x[i]
+        else:
+            e_acc=e_acc+e
+            out[i]=e_acc*(x[i+1]-x[i])+x[i]
+    return out
