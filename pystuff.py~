@@ -10,8 +10,10 @@ Content:
 	4) getbox: calculats the area mean (does not weight). Returns the mean (a float) and the map with NaN's outside the area.
 	5) runmean: calculates running mean of given window size on x, and returns a series with same lenght as x
 	6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
-        7) Standardize (and center) time series
-
+    7) standardize: Standardize (and center) time series
+    8) compress: Compresses a time series of length x into a time series of length x-1. Useful to treat leap years.
+    9) season1d: Calculates seasonal means of given monthly time series (starting in Jan). Returns [time, season] array. Default is JAS for season=0.
+    
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
@@ -176,7 +178,7 @@ def ddpca(x):
 
 ##### 3) Remove Linear Trend #####
 
-def ddetrend(var,xvar=321943587416321,returnTrend=False):
+def ddetrend(var,xvar=321943587416321,returnTrend=False,center=False):
 
     import numpy as np
     from scipy import stats
@@ -209,7 +211,10 @@ def ddetrend(var,xvar=321943587416321,returnTrend=False):
     # Make linear model, calculate and remove trend
     slope, intercept, _, _, _ = stats.linregress(xvar_clean,var_clean)
     trend=np.array(xvar_clean)*slope+intercept
-    var_dt=var_clean-trend+np.mean(var_clean)
+    if center:
+        var_dt=var_clean-trend
+    else:
+        var_dt=var_clean-trend+np.mean(var_clean)
 
     # Put NaN's back in their places
     if np.isnan(var).any():
@@ -332,12 +337,15 @@ def runmean(x,window=3,fillaround=False):
 
 #################### 6) ddreg
     
-def ddreg(x,y):
+def ddreg(x,y,returnStats=False):
     import numpy as np
     from scipy import stats
-    slope, inter, _, _, _ = stats.linregress(x,y)
+    slope, inter, r, p, se = stats.linregress(x,y)
     trend=np.array(x)*slope+inter
-    return trend
+    if returnStats:
+        return slope, r, p    
+    else:    
+        return trend
 
 ################## 7) Standardize
 
@@ -350,3 +358,73 @@ def standardize(x,center=True):
         xn = x/np.nanstd(x)
     return xn
 
+################## 8) Compress
+def compress(x):
+    import numpy as np
+    lenx=len(x)
+    lenout=lenx-1
+    e=float(1/(lenout))
+    e_acc=0
+    out=np.zeros((lenout,))
+    for i in range(lenout):
+        if i==0:
+            out[i]=x[i]
+        else:
+            e_acc=e_acc+e
+            out[i]=e_acc*(x[i+1]-x[i])+x[i]
+    return out
+    
+    
+################ 8) Seasonal Means
+
+def season1d(x,start='JAS',vmin=False,vmax=False):    
+    import numpy as np
+    
+    # Create array of years
+    if ~vmin or ~vmax:
+        print('ymin and ymax not were not given.')
+        print('Will assume 1979-2017 (incl).')#
+        vmin=1979
+        vmax=2018
+    years=np.zeros((len(np.arange(vmin,vmax))*12,))
+    y=0
+    for i in np.arange(vmin,vmax):
+        oneyear=np.zeros((12,)); oneyear.fill(i)
+        years[0+y:12+y]=oneyear
+        y=y+12
+
+    # Create array of monthly positions
+    positions=np.zeros((vmax-vmin,12))
+    ano=vmin
+    for i in np.arange(0,vmax-vmin,1):
+        positions[i,:]=np.where(years==ano)[0][:]
+        ano=ano+1
+    positions=positions.astype(int); # 1979 to 2017 (incl.) : size 39
+
+    # Get seasonal positions
+    seas_pos=np.zeros((vmax-vmin,3,12))  # 1980 to 2017 (inlc.) : size 38
+    for i in range(vmax-vmin-1):
+        seas_pos[i,:,0]  = positions[i  , 6], positions[i  , 7], positions[i  , 8] # jas
+        seas_pos[i,:,1]  = positions[i  , 7], positions[i  , 8], positions[i  , 9] # aso
+        seas_pos[i,:,2]  = positions[i  , 8], positions[i  , 9], positions[i  ,10] # son
+        seas_pos[i,:,3]  = positions[i  , 9], positions[i  ,10], positions[i  ,11] # ond
+        seas_pos[i,:,4]  = positions[i  ,10], positions[i  ,11], positions[i+1, 0] # ndj
+        seas_pos[i,:,5]  = positions[i  ,11], positions[i+1, 0], positions[i+1, 1] # djf
+        seas_pos[i,:,6]  = positions[i+1, 0], positions[i+1, 1], positions[i+1, 2] # jfm
+        seas_pos[i,:,7]  = positions[i+1, 1], positions[i+1, 2], positions[i+1, 3] # fma
+        seas_pos[i,:,8]  = positions[i+1, 2], positions[i+1, 3], positions[i+1, 4] # mam
+        seas_pos[i,:,9]  = positions[i+1, 3], positions[i+1, 4], positions[i+1, 5] # amj
+        seas_pos[i,:,10] = positions[i+1, 4], positions[i+1, 5], positions[i+1, 6] # mjj
+        seas_pos[i,:,11] = positions[i+1, 5], positions[i+1, 6], positions[i+1, 7] # jja
+
+    # Make annual (seasonal) means [this is correct]
+    season_mean=np.zeros((vmax-vmin,12)) # [year, seas, lat, lon]
+    print(vmax-vmin)
+    for t in range((vmax-vmin)):
+        for s in range(12):
+            #season_mean[t,s,:,:] = np.mean(myvar[seas_pos[t,:,s].astype(int),:,:],
+            #             axis=0) # 1980 to 2017 (inlc.) : size 38
+            season_mean[t,s] = np.mean(x[seas_pos[t,:,s].astype(int)], axis=0)
+            
+    return season_mean
+    
