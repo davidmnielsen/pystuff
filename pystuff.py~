@@ -12,7 +12,7 @@ Content:
 	6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
     7) standardize: Standardize (and center) time series
     8) compress: Compresses a time series of length x into a time series of length x-1. Useful to treat leap years.
-    9) season1d: Calculates seasonal means of given monthly time series (starting in Jan). Returns [time, season] array. Default is JAS for season=0.
+    9) season1d: Calculates seasonal means of given monthly time series (starting in Jan). Returns [time, season] array. Default is JAS for season=0 (i.e. out[:,0] for JAS means in all years).
     
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
@@ -285,12 +285,18 @@ def getbox(coords,lat,lon,data,returnmap=False):
 
 ########## 5) Running mean
 
-def runmean(x,window=3,fillaround=False):
+def runmean(x,window=3,fillaround=False,weights=False):
     
     '''
     Calculates a running mean of a given series x, using a window
     of given length. The window must be odd, ideally. Otherwise, 
     an approximation will be made.
+    
+    Optionally, an array of weights can be give (of same length of windowm, 
+    otherwise length of weights will be used.) Useful to apply Lanczos weights
+    to low-pass filter a time series.
+    
+    The option to fillaround does not work well with weights. Should not be used together.
     '''
     
     import numpy as np
@@ -306,7 +312,16 @@ def runmean(x,window=3,fillaround=False):
         print('Window given is too small.')
         print('Using minimum window=3 instead.')
         window=3
-    
+        
+    # Check for weights
+    if type(weights) is not bool:
+        
+        # Check if given window and weights have equal lengths
+        if len(weights)!=window:
+            #print('Window and array of weights have different lenghts.')
+            print('pystuff.runmean: Using window with len(weights)=%d' %len(weights))
+            window=len(weights)
+        
     # This option will apply increasing windows on borders
     # so that the len(outseries)=len(inseries)
     if fillaround:
@@ -315,10 +330,19 @@ def runmean(x,window=3,fillaround=False):
         x_rm=np.zeros(np.shape(x))
         for w in range(len(increasingWindows)):
             halfwindow=int((increasingWindows[w]-1)/2)
-            #print(halfwindow)
             for t in range(len(x)):
+                # Is t on the edges?
                 if t>=halfwindow and t<(len(x)-halfwindow):
-                    x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
+                    # Apply weights?
+                    if type(weights) is not bool:
+                        midw=(len(weights)/2)+1
+                        # t not on the edges with weight
+                        x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                       weights[:2*halfwindow],
+                                       axis=0)/np.sum(weights[:2*halfwindow])                            
+                    else:
+                        # t not on the edges without weight
+                        x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
                 else:
                     if halfwindow==1:
                         x_rm[t]=x[t]
@@ -328,8 +352,12 @@ def runmean(x,window=3,fillaround=False):
         x_rm=np.zeros(np.shape(x))
         halfwindow=int((window-1)/2)
         for t in range(len(x)):
+            #print(halfwindow)
             if t>=halfwindow and t<(len(x)-halfwindow):
-                x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow],axis=0)
+                if type(weights) is bool:
+                    x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                else:
+                    x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.sum(weights)
             else:
                 x_rm[t]=np.nan
                 
@@ -427,4 +455,162 @@ def season1d(x,start='JAS',vmin=False,vmax=False):
             season_mean[t,s] = np.mean(x[seas_pos[t,:,s].astype(int)], axis=0)
             
     return season_mean
+    
+ 
+    
+def yearmean(x):
+    annual=np.zeros((len(x)/12,))
+    year=0
+    month=1
+    for t in range(len(x)):
+        if month==13:
+            month=1
+            year=year+1
+        annual[year]=annual[year]+x[t]
+        month=month+1
+    for y in range(len(annual)):
+        annual[y]=annual[y]/12
+    return annual
+    
+######################### SIGNAL PROCESSING ######################### 
+    
+def rho(datax):
+    # Calculates the lag-1 Autocorrelation Coefficient.
+    import numpy as np  
+    nrho=len(datax)
+    sommesup=0
+    sommeinf=0
+    moy=np.sum(datax)/nrho
+    datam=datax-moy
+    for i in np.arange(1,nrho):
+        j=i-1
+        sommesup=sommesup+(datam[i]*datam[j])
+        sommeinf=sommeinf+(datam[j]**2)
+    rho=sommesup/sommeinf
+    return rho
+
+def rhoAlt(datax,dt=1):
+    # Calculates the lag-dt Autocorrelation Coefficient, given the dt.
+    import numpy as np  
+    r=np.corrcoef(datax[0:-dt-1],datax[dt:-1])
+    return r[0,1]
+
+def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
+    # Creates nsim time series of rednoise of length=lenx, with lag-1 autocorrelation rho.
+    import numpy as np
+    srho=(1-(rho**2))**(0.5)
+    red=np.zeros((lenx,nsim))
+    white=np.zeros((lenx,nsim))
+    for j in range(nsim-1):
+        for i in range(lenx-1):
+            if dist=='normal':
+                #white[i+1,j]=white[i,j]+np.random.normal() # mu=0, std=1
+                white[i+1,j]=np.random.normal() # mu=0, std=1
+            elif dist=='uniform':
+                #white[i+1,j]=white[i,j]+np.random.uniform(-1,1)
+                white[i+1,j]=np.random.uniform(-1,1)
+    for j in range(nsim):
+        for i in range(lenx):
+            if i==0:
+                red[i,j]=white[i,j]*srho
+            else:
+                red[i,j]=rho*red[i-1,j]+white[i,j]*srho
+    if returnWhite:
+        return red, white
+    else:
+        return red
+
+def theored(dt,rho,meanP,f):
+    import numpy as np
+    fnyq=1/(2*dt)
+    theo=np.zeros((len(meanP,)))
+    for i in range(len(meanP)):
+        theo[i]=(1-rho**2)/(1-(2*rho*np.cos(np.pi*f[i]/fnyq))+rho**2)
+    theoun=theo[0]
+    theo[0]=0
+    Art=np.sum(theo)/(len(meanP))
+    theo[0]=theoun
+    Ax=np.sum(meanP)/len(meanP)
+    theo=theo*(Ax/Art);
+    return theo
+
+def low_pass_weights(window, cutoff):
+    """Calculate weights for a low pass Lanczos filter.
+
+    Args:
+
+    window: int
+        The length of the filter window.
+
+    cutoff: float
+        The cutoff frequency in inverse time steps.
+    """
+    import numpy as np
+    order = ((window - 1) // 2 ) + 1
+    nwts = 2 * order + 1
+    w = np.zeros([nwts])
+    n = nwts // 2
+    w[n] = 2 * cutoff
+    k = np.arange(1., n)
+    sigma = np.sin(np.pi * k / n) * n / (np.pi * k)
+    firstfactor = np.sin(2. * np.pi * cutoff * k) / (np.pi * k)
+    w[n-1:0:-1] = firstfactor * sigma
+    w[n+1:-1] = firstfactor * sigma
+    return w[1:-1]
+
+def lanczos(x,cutoff,fillaround=False, returnNonan=False):
+    # Applies running mean (Convolution) using low-pass Lanczos weights
+    import numpy as np
+    windowlen  = cutoff+1#
+    weights    = low_pass_weights(windowlen, 1/cutoff)
+    xlow       = runmean(x,window=len(weights),weights=weights,fillaround=fillaround)
+    if returnNonan:
+        xlow_nonan = xlow[~np.isnan(xlow)]
+        return xlow, xlow_nonan
+    else:
+        return xlow
+    
+def periods(x,dt,returnPeriods=True, nsim=1000):
+    import numpy as np
+    from scipy import signal
+    from scipy.stats.distributions import chi2
+    
+    # Calculate periodogram of x
+    f, psd = signal.periodogram(x,fs=dt,detrend='linear')
+    per=1/f
+    max5=np.zeros((5,3))
+    psdc=psd.copy()
+    
+    # Get the 5 larges periods
+    for i in range(5):
+        max5[i,0]=f[psdc==max(psdc)]
+        max5[i,1]=psdc[psdc==max(psdc)]
+        max5[i,2]=per[psdc==max(psdc)]
+        psdc[psdc==max(psdc)]=0
+    
+    # Calculate nsim red-noise time series
+    red =rednoise(len(x), rhoAlt(x,dt), nsim ,dist='uniform')
+    
+    # Calculate periodograms of the nsim red-noise series
+    fn=np.zeros((len(f),nsim))
+    Pn=np.zeros((len(f),nsim))
+    for n in range(nsim):
+        fn[:,n], Pn[:,n] = signal.periodogram(red[:,n],fs=dt,detrend='linear')
+        
+    # Mean spectrum of nsim simulations
+    meanP=np.mean(Pn,axis=1)
+    
+    # Calculate theoretical mean spectrum of nsim simulations
+    theo = theored(1/dt,rhoAlt(x,dt),meanP,f)
+    
+    # Calculates confidence curves
+    nw=5
+    coefs=np.zeros((100,))
+    conflevs=np.zeros((100,len(f)))
+    for c in range(100):
+        coefs[c]=chi2.ppf(c/100, 2*(2*nw-1))/(2*(2*nw-1))
+        conflevs[c,:]=coefs[c]*theo
+        
+    return f, psd, conflevs, max5, meanP 
+    
     
