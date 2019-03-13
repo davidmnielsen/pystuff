@@ -15,9 +15,9 @@ import pystuff.pystuff as ps
 ```
 
 ### Use Xarray and Pandas to read your data
-#### North Atlantic SSTs
 
 ```python
+# ERA-Interim SST anomalies, weighted by sqrt(cos(lat))
 pathfile='/work/uo1075/u241292/data/ERAI/atmo/monavg_sst_w2_anom.nc'
 ds=xr.open_dataset(pathfile)
 lat=ds['lat'].values

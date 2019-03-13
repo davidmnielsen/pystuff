@@ -15,9 +15,9 @@ import pystuff.pystuff as ps
 ```
 
 ### Use Xarray and Pandas to read your data
-#### North Atlantic SSTs
 
 ```python
+# ERA-Interim SSTs, 
 pathfile='/work/uo1075/u241292/data/ERAI/atmo/monavg_sst_w2_anom.nc'
 ds=xr.open_dataset(pathfile)
 lat=ds['lat'].values
@@ -79,22 +79,23 @@ plt.show()
 fig = plt.figure(figsize=(12,5))
 
 fig.add_subplot(1,2,1)
-f, psd, conf, max5, psdm = ps.periods(nasstdt, 12)
+f, psd, conf, max5, psdm = ps.periods(low_nonan, 12)
 plt.plot(f, psd, color='b', linewidth=2, label='Spectrum')
 plt.plot(f,psdm, 'r', label='Mean spectrum of 1000 red-noise time series')
-plt.plot(f,conf[50,:], '--r', label='50%% conf. level')
-plt.plot(f,conf[99,:], ':k', label='99%% conf. level')
-plt.plot(f,conf[95,:], '--k', label='95%% conf. level')
-plt.plot(f,conf[90,:], '-k', label='90%% conf. level')
+plt.plot(f,conf[50,:], '--r', label='50% conf. level')
+plt.plot(f,conf[99,:], ':k', label='99% conf. level')
+plt.plot(f,conf[95,:], '--k', label='95% conf. level')
+plt.plot(f,conf[90,:], '-k', label='90% conf. level')
 plt.xlabel('Frequency [year$^{-1}$]')
 plt.ylabel('PSD [Units$^{2}$ year]')
 for i in range(3):
     plt.text(max5[i,0],max5[i,1],'%.1f yr' %max5[i,2])
-plt.legend(loc='upper right', fontsize='small', frameon=True)
 plt.xlim((0,2))
+plt.legend(loc='upper right', fontsize='small', frameon=True)
+plt.title('Spectrum of low-pass filtered data')
 
 fig.add_subplot(1,2,2)
-f, psd, conf, max5, psdm = ps.periods(low_nonan, 12)
+f, psd, conf, max5, psdm = ps.periods(nasstdt, 12)
 plt.plot(f, psd, color='b', linewidth=2)
 plt.plot(f,conf[50,:], '--r')
 plt.plot(f,psdm, 'r')
@@ -105,7 +106,8 @@ plt.xlabel('Frequency [year$^{-1}$]')
 plt.ylabel('PSD [Units$^{2}$ year]')
 for i in range(3):
     plt.text(max5[i,0],max5[i,1],'%.1f yr' %max5[i,2])
-plt.xlim((0,2))
+#plt.xlim((0,2))
+plt.title('Spectrum of original data')
 
 plt.tight_layout()
 plt.show()
