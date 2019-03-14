@@ -456,9 +456,10 @@ def season1d(x,start='JAS',vmin=False,vmax=False):
             
     return season_mean
     
- 
+########## Annual Mean (of monthly values) 
     
-def yearmean(x):
+def annualmean(x):
+    import numpy as np
     annual=np.zeros((len(x)/12,))
     year=0
     month=1

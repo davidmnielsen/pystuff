@@ -334,12 +334,23 @@ def runmean(x,window=3,fillaround=False,weights=False):
                 # Is t on the edges?
                 if t>=halfwindow and t<(len(x)-halfwindow):
                     # Apply weights?
-                    if type(weights) is not bool:
-                        midw=(len(weights)/2)+1
-                        # t not on the edges with weight
-                        x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
-                                       weights[:2*halfwindow],
-                                       axis=0)/np.sum(weights[:2*halfwindow])                            
+                    if type(weights) is not bool:                        
+                        if t<len(weights):
+                            # t is on the left edge
+                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                           weights[-2*halfwindow-1:-1],
+                                           axis=0)/np.sum(weights[-2*halfwindow-1:-1])
+                        elif t>=(len(x)-len(weights)):
+                            # t is on the right edge
+                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                           weights[:2*halfwindow],
+                                           axis=0)/np.sum(weights[:2*halfwindow])
+                        else:
+                            # t is not on the edges
+                            midw=(len(weights)/2)+1
+                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                           weights[midw-halfwindow:midw+halfwindow],axis=0)/\
+                                           np.sum(weights[midw-halfwindow:midw+halfwindow])                       
                     else:
                         # t not on the edges without weight
                         x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
@@ -359,9 +370,9 @@ def runmean(x,window=3,fillaround=False,weights=False):
                 else:
                     x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.sum(weights)
             else:
-                x_rm[t]=np.nan
-                
+                x_rm[t]=np.nan                
     return x_rm
+
 
 #################### 6) ddreg
     
@@ -559,10 +570,12 @@ def low_pass_weights(window, cutoff):
     w[n+1:-1] = firstfactor * sigma
     return w[1:-1]
 
-def lanczos(x,cutoff,fillaround=False, returnNonan=False):
+def lanczos(x,cutoff,windowlen=False, fillaround=False, returnNonan=False):
     # Applies running mean (Convolution) using low-pass Lanczos weights
     import numpy as np
-    windowlen  = cutoff+1#
+    if type(windowlen) is bool:
+        windowlen  = cutoff+1
+    #print(windowlen)
     weights    = low_pass_weights(windowlen, 1/cutoff)
     xlow       = runmean(x,window=len(weights),weights=weights,fillaround=fillaround)
     if returnNonan:
