@@ -17,6 +17,10 @@ Content:
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
+def leg(loc='best', fontsize='small'):
+    import matplotlib.pyplot as plt
+    plt.legend(loc=loc, frameon=False, fontsize=fontsize)
+
 def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
 
     """
@@ -513,7 +517,7 @@ def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
     srho=(1-(rho**2))**(0.5)
     red=np.zeros((lenx,nsim))
     white=np.zeros((lenx,nsim))
-    for j in range(nsim-1):
+    for j in range(nsim):
         for i in range(lenx-1):
             if dist=='normal':
                 #white[i+1,j]=white[i,j]+np.random.normal() # mu=0, std=1
@@ -626,5 +630,138 @@ def periods(x,dt,returnPeriods=True, nsim=1000):
         conflevs[c,:]=coefs[c]*theo
         
     return f, psd, conflevs, max5, meanP 
+    
+################ MLR
+
+def mlr(X,y,nvars=1,stds=2,returnCoefs=False, printSummary=False):
+    '''
+    This function calculates a Multiple Linear Regression (MLR) for any number of covariates (nvars)
+    and the condidence intervals for given number of standar deviations (stds), 
+    based on the principle described in:
+    https://stats.stackexchange.com/questions/85560/shape-of-confidence-interval-for-predicted-values-in-linear-regression
+    (see the answer by user ouranos).
+    '''
+    import numpy as np
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smf
+    
+    # Fit model
+    xx     = sm.add_constant(X, prepend=True)
+    model  = smf.OLS(y,xx).fit()
+    fitted = model._results.fittedvalues
+    r2     = model._results.rsquared
+    r2adj  = model._results.rsquared_adj    
+    if printSummary:
+        print(model.summary())
+
+    # Store coefs
+    coefs=np.zeros((nvars+1,2))
+    for i in range(nvars+1):
+        coefs[i,0]=model.params[i] 
+        coefs[i,1]=model.bse[i]
+       
+    # Set up all possible combination of signs
+    signs = np.zeros((2**(nvars+1),nvars+1))
+    for j in range(nvars+1):
+        count=((2**(nvars+1))/2**(j+1))
+        fir=np.zeros((count,)); fir.fill(1)
+        sec=np.zeros((count,)); sec.fill(-1)
+        signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
+    
+    # Make all possible lines, combining the signs of uncertainties
+    lines=np.zeros((len(y),2**(nvars+1)))
+    for i in range(2**(nvars+1)):
+        if nvars==1:
+            lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+        else:
+            linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
+            angterm = 0
+            for n in np.arange(1,nvars+1):
+                angterm = angterm + X[:,n-1]*(coefs[n,0]+signs[i,n]*stds*coefs[n,1])
+            lines[:,i] = linterm + angterm         
+    combs=np.stack(lines,axis=0)
+    lo=np.min(combs, axis=1)
+    up=np.max(combs, axis=1)
+    
+    '''  
+    ### This was dumb: 
+    if nvars==1:
+        # Calculate lower and upper boudaries for uncertainties
+        x1 = X                 
+        comb1=x1*(coefs[1,0]-stds*coefs[1,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb2=x1*(coefs[1,0]+stds*coefs[1,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb3=x1*(coefs[1,0]-stds*coefs[1,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb4=x1*(coefs[1,0]+stds*coefs[1,1]) + coefs[0,0]+stds*coefs[0,1]
+        combs=np.stack([comb1,comb2,comb3,comb4],axis=1)
+        lo=np.min(combs, axis=1)
+        up=np.max(combs, axis=1)
+    
+    elif nvars==2:
+        # Calculate lower and upper boudaries for uncertainties
+        x1 = X[:,0]
+        x2 = X[:,1]
+        comb1 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb2 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb3 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb4 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb5 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb6 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb7 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb8 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + coefs[0,0]+stds*coefs[0,1]
+        combs=np.stack([comb1,comb2,comb3,comb4,comb5,comb6,comb7,comb8],axis=1)
+        lo=np.min(combs, axis=1)
+        up=np.max(combs, axis=1)
+        
+    elif nvars==3:
+        x1 = X[:,0]
+        x2 = X[:,1]
+        x3 = X[:,2]
+        comb1  = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb2  = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb3  = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb4  = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb5  = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb6  = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb7  = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb8  = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]-stds*coefs[0,1]
+        comb9  = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb10 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb11 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb12 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]-stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb13 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb14 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]-stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb15 = x1*(coefs[1,0]-stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        comb16 = x1*(coefs[1,0]+stds*coefs[1,1]) + x2*(coefs[2,0]+stds*coefs[2,1]) + x3*(coefs[3,0]+stds*coefs[3,1]) + coefs[0,0]+stds*coefs[0,1]
+        combs=np.stack([comb1,comb2, comb3, comb4, comb5, comb6, comb7, comb8,
+                        comb9,comb10,comb11,comb12,comb13,comb14,comb15,comb16],axis=1)
+        lo=np.min(combs, axis=1)
+        up=np.max(combs, axis=1)
+   '''  
+    if returnCoefs:
+        return fitted, lo, up, r2, r2adj, coefs
+    else:
+        return fitted, lo, up, r2, r2adj
+    
+    
+def mlr_res(X,y):
+    '''
+    Similar to mlr, but returns only the residuals
+    '''
+    import numpy as np
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smf
+    xx    = sm.add_constant(X, prepend=True)
+    model = smf.OLS(y,xx).fit()
+    fitted = model._results.fittedvalues    
+    res = y - fitted
+    return res
+    
+def nospines(ax):
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.yaxis.set_ticks_position('left')
+    ax.xaxis.set_ticks_position('bottom')
+    
+    
     
     

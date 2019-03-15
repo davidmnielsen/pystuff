@@ -17,6 +17,7 @@ Content:
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
+
 def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
 
     """
@@ -513,7 +514,7 @@ def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
     srho=(1-(rho**2))**(0.5)
     red=np.zeros((lenx,nsim))
     white=np.zeros((lenx,nsim))
-    for j in range(nsim-1):
+    for j in range(nsim):
         for i in range(lenx-1):
             if dist=='normal':
                 #white[i+1,j]=white[i,j]+np.random.normal() # mu=0, std=1
@@ -752,11 +753,18 @@ def mlr_res(X,y):
     res = y - fitted
     return res
     
+################ Small Useful Stuff
+    
 def nospines(ax):
+    import matplotlib.pyplot as plt
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.yaxis.set_ticks_position('left')
     ax.xaxis.set_ticks_position('bottom')
+    
+def leg(loc='best', fontsize='small', frameon=False):
+    import matplotlib.pyplot as plt
+    plt.legend(loc=loc, frameon=frameon, fontsize=fontsize)
     
     
     
