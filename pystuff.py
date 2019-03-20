@@ -630,7 +630,7 @@ def periods(x,dt,returnPeriods=True, nsim=1000):
     
 ################ MLR
 
-def mlr(X,y,nvars=1,stds=2,returnCoefs=False, printSummary=False):
+def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
     '''
     This function calculates a Multiple Linear Regression (MLR) for any number of covariates (nvars)
     and the condidence intervals for given number of standar deviations (stds), 
@@ -641,6 +641,13 @@ def mlr(X,y,nvars=1,stds=2,returnCoefs=False, printSummary=False):
     import numpy as np
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
+    
+    # Check the number of covariates
+    if np.size(np.shape(X))==1:
+        nvars=1
+    elif np.size(np.shape(X))>1:
+        X=np.transpose(np.stack(X))
+        nvars=np.shape(X)[1]
     
     # Fit model
     xx     = sm.add_constant(X, prepend=True)
@@ -747,7 +754,9 @@ def mlr_res(X,y):
     import numpy as np
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
-    xx    = sm.add_constant(X, prepend=True)
+    if np.size(np.shape(X))>1:
+        X=np.transpose(np.stack(X))
+    xx = sm.add_constant(X, prepend=True)
     model = smf.OLS(y,xx).fit()
     fitted = model._results.fittedvalues    
     res = y - fitted

@@ -17,9 +17,6 @@ Content:
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
-def leg(loc='best', fontsize='small'):
-    import matplotlib.pyplot as plt
-    plt.legend(loc=loc, frameon=False, fontsize=fontsize)
 
 def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
 
@@ -633,7 +630,7 @@ def periods(x,dt,returnPeriods=True, nsim=1000):
     
 ################ MLR
 
-def mlr(X,y,nvars=1,stds=2,returnCoefs=False, printSummary=False):
+def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
     '''
     This function calculates a Multiple Linear Regression (MLR) for any number of covariates (nvars)
     and the condidence intervals for given number of standar deviations (stds), 
@@ -644,6 +641,13 @@ def mlr(X,y,nvars=1,stds=2,returnCoefs=False, printSummary=False):
     import numpy as np
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
+    
+    # Check the number of covariates
+    if np.size(np.shape(X))==1:
+        nvars=1
+    elif np.size(np.shape(X))>1:
+        X=np.transpose(np.stack(X))
+        nvars=np.shape(X)[1]
     
     # Fit model
     xx     = sm.add_constant(X, prepend=True)
@@ -756,11 +760,18 @@ def mlr_res(X,y):
     res = y - fitted
     return res
     
+################ Small Useful Stuff
+    
 def nospines(ax):
+    import matplotlib.pyplot as plt
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.yaxis.set_ticks_position('left')
     ax.xaxis.set_ticks_position('bottom')
+    
+def leg(loc='best', fontsize='small', frameon=False):
+    import matplotlib.pyplot as plt
+    plt.legend(loc=loc, frameon=frameon, fontsize=fontsize)
     
     
     
