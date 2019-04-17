@@ -754,7 +754,9 @@ def mlr_res(X,y):
     import numpy as np
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
-    xx    = sm.add_constant(X, prepend=True)
+    if np.size(np.shape(X))>1:
+        X=np.transpose(np.stack(X))
+    xx = sm.add_constant(X, prepend=True)
     model = smf.OLS(y,xx).fit()
     fitted = model._results.fittedvalues    
     res = y - fitted

@@ -350,8 +350,8 @@ def runmean(x,window=3,fillaround=False,weights=False):
                             # t is not on the edges
                             midw=(len(weights)/2)+1
                             x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
-                                           weights[midw-halfwindow:midw+halfwindow],axis=0)/\
-                                           np.sum(weights[midw-halfwindow:midw+halfwindow])                       
+                                           weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
+                                           np.sum(weights[int(midw-halfwindow):int(midw+halfwindow)])                       
                     else:
                         # t not on the edges without weight
                         x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
@@ -577,8 +577,8 @@ def lanczos(x,cutoff,windowlen=False, fillaround=False, returnNonan=False):
     if type(windowlen) is bool:
         windowlen  = cutoff+1
     #print(windowlen)
-    weights    = low_pass_weights(windowlen, 1/cutoff)
-    xlow       = runmean(x,window=len(weights),weights=weights,fillaround=fillaround)
+    weights    = low_pass_weights(int(windowlen), 1/cutoff)
+    xlow       = runmean(x,window=int(windowlen),weights=weights,fillaround=fillaround)
     if returnNonan:
         xlow_nonan = xlow[~np.isnan(xlow)]
         return xlow, xlow_nonan
@@ -629,7 +629,6 @@ def periods(x,dt,returnPeriods=True, nsim=1000):
     return f, psd, conflevs, max5, meanP 
     
 ################ MLR
-
 def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
     '''
     This function calculates a Multiple Linear Regression (MLR) for any number of covariates (nvars)
@@ -639,6 +638,7 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
     (see the answer by user ouranos).
     '''
     import numpy as np
+    import numpy.matlib as npm
     import statsmodels.api as sm
     import statsmodels.formula.api as smf
     
@@ -668,9 +668,9 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
     signs = np.zeros((2**(nvars+1),nvars+1))
     for j in range(nvars+1):
         count=((2**(nvars+1))/2**(j+1))
-        fir=np.zeros((count,)); fir.fill(1)
-        sec=np.zeros((count,)); sec.fill(-1)
-        signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
+        fir=np.zeros((int(count),)); fir.fill(1)
+        sec=np.zeros((int(count),)); sec.fill(-1)
+        signs[:,j]=npm.repmat(np.hstack([fir,sec]),1,2**(j)) 
     
     # Make all possible lines, combining the signs of uncertainties
     lines=np.zeros((len(y),2**(nvars+1)))
@@ -688,7 +688,7 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
     up=np.max(combs, axis=1)
     
     '''  
-    ### This was dumb: 
+    ### This was very dumb: 
     if nvars==1:
         # Calculate lower and upper boudaries for uncertainties
         x1 = X                 
@@ -741,11 +741,11 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
         lo=np.min(combs, axis=1)
         up=np.max(combs, axis=1)
    '''  
+    
     if returnCoefs:
         return fitted, lo, up, r2, r2adj, coefs
     else:
         return fitted, lo, up, r2, r2adj
-    
     
 def mlr_res(X,y):
     '''
