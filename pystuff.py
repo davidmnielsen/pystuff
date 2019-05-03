@@ -13,6 +13,7 @@ Content:
     7) standardize: Standardize (and center) time series
     8) compress: Compresses a time series of length x into a time series of length x-1. Useful to treat leap years.
     9) season1d: Calculates seasonal means of given monthly time series (starting in Jan). Returns [time, season] array. Default is JAS for season=0 (i.e. out[:,0] for JAS means in all years).
+    10) order: sort a time series y in ascending order, and return a reordered time series x (w.r.t the sorting of y)
     
 Found a bug? Please let me know:
 davidnielsen@id.uff.br
@@ -389,14 +390,18 @@ def ddreg(x,y,returnStats=False):
 
 ################## 7) Standardize
 
-def standardize(x,center=True):
+def standardize(x,center=True,detrend=False):
     import numpy as np
     xn = np.full(np.shape(x),np.nan)
     if center:
         xn = (x - np.nanmean(x))/np.nanstd(x)
     else:
         xn = x/np.nanstd(x)
-    return xn
+    if detrend:
+        out=ddetrend(xn)
+    else:
+        out=xn.copy()
+    return out
 
 ################## 8) Compress
 def compress(x):
@@ -774,6 +779,19 @@ def nospines(ax):
 def leg(loc='best', fontsize='small', frameon=False):
     import matplotlib.pyplot as plt
     plt.legend(loc=loc, frameon=frameon, fontsize=fontsize)
+
+################## order
+
+def order(x,y):
+    import numpy as np
+    yout=np.zeros(np.shape(y))
+    xout=np.sort(x)
+    for i in range(len(x)):
+        mini = np.min(x)
+        minipos = np.where(x==mini)[0]
+        yout[i]=y[minipos]
+        x[minipos]=10**10
+    return yout
     
     
     
