@@ -793,6 +793,115 @@ def order(x,y):
         x[minipos]=10**10
     return yout
     
+##################### Load Coastal Erosion Rates
+
+def loaderos(i,th=0.8,standardize=True):
     
+    ### USAGE:
+    # for in range(4):
+    #     pos, pos_hi, pos_lo, pos_hilo, ero, name, time_ero = loaderos(i, th=0.8, standardize=True)
+    
+    import numpy as np
+    import xarray as xr
+    import pandas as pd
+    
+    import warnings
+    warnings.filterwarnings("ignore")
+    
+    if i==0:
+        series='vasi_marre'
+        file_ero='/work/uo1075/u241292/data/COAST/Vasiliev/%s_from1979_dt.nc' %series
+        ds_ero=xr.open_dataset('%s' %file_ero)
+        erosion=ds_ero['erosion'].values
+        erosion[np.where(erosion==-9999)]=np.nan
+        marre=erosion
+        if standardize:
+            marre=(erosion-np.nanmean(erosion))/np.nanstd(erosion,axis=0)
+        pos_marre   = np.where(~np.isnan(marre[1:-1]))[0]
+        pos_marre_hi   = np.where((~np.isnan(marre[1:-1]))   & ((marre[1:-1]-np.nanmean(marre[1:-1]))/np.nanstd(marre[1:-1])>th))[0]
+        pos_marre_lo   = np.where((~np.isnan(marre[1:-1]))   & ((marre[1:-1]-np.nanmean(marre[1:-1]))/np.nanstd(marre[1:-1])<-th))[0]
+        pos_marre_hilo   = np.where((~np.isnan(marre[1:-1]))   & (abs((marre[1:-1]-np.nanmean(marre[1:-1]))/np.nanstd(marre[1:-1]))>th))[0]
+        marre_short=marre[1:-1]
+
+        
+    elif i==1:
+        series='grig_bykovsky'
+        file_ero='/work/uo1075/u241292/data/COAST/Grig_Razu/%s_from1979_dt.nc' %series
+        ds_ero=xr.open_dataset('%s' %file_ero)
+        erosion=ds_ero['erosion'].values
+        erosion[np.where(erosion==-9999)]=np.nan
+        bykov=erosion
+        if standardize:
+            bykov=(erosion-np.nanmean(erosion))/np.nanstd(erosion,axis=0)
+        pos_bykov   = np.where(~np.isnan(bykov[1:-1]))[0] # from 1980 to 2017 (incl.)
+        pos_bykov_hi   = np.where((~np.isnan(bykov[1:-1]))   & ((bykov[1:-1]-np.nanmean(bykov[1:-1]))/np.nanstd(bykov[1:-1])>th))[0]
+        pos_bykov_lo   = np.where((~np.isnan(bykov[1:-1]))   & ((bykov[1:-1]-np.nanmean(bykov[1:-1]))/np.nanstd(bykov[1:-1])<-th))[0]
+        pos_bykov_hilo   = np.where((~np.isnan(bykov[1:-1]))   & (abs((bykov[1:-1]-np.nanmean(bykov[1:-1]))/np.nanstd(bykov[1:-1]))>th))[0]
+        bykov_short=bykov[1:-1] # 1980 to 2017 (incl.) :size 38
+
+        
+    elif i==2:
+        series='grig_muostakh_N'
+        file_ero='/work/uo1075/u241292/data/COAST/Grig_Razu/%s_from1979_dt.nc' %series
+        ds_ero=xr.open_dataset('%s' %file_ero)
+        erosion=ds_ero['erosion'].values
+        erosion[np.where(erosion==-9999)]=np.nan
+        muostN=erosion
+        if standardize:
+            muostN=(erosion-np.nanmean(erosion))/np.nanstd(erosion,axis=0)
+        pos_muostN  = np.where(~np.isnan(muostN[1:-1]))[0]
+        pos_muostN_hi  = np.where((~np.isnan(muostN[1:-1]))  & ((muostN[1:-1]-np.nanmean(muostN[1:-1]))/np.nanstd(muostN[1:-1])>th))[0]
+        pos_muostN_lo  = np.where((~np.isnan(muostN[1:-1]))  & ((muostN[1:-1]-np.nanmean(muostN[1:-1]))/np.nanstd(muostN[1:-1])<-th))[0]
+        pos_muostN_hilo  = np.where((~np.isnan(muostN[1:-1]))  & (abs((muostN[1:-1]-np.nanmean(muostN[1:-1]))/np.nanstd(muostN[1:-1]))>th))[0]
+        muostN_short=muostN[1:-1]
+
+    
+    elif i==3:
+        series='grig_muostakh_NE'
+        file_ero='/work/uo1075/u241292/data/COAST/Grig_Razu/%s_from1979_dt.nc' %series
+        ds_ero=xr.open_dataset('%s' %file_ero)
+        erosion=ds_ero['erosion'].values
+        erosion[np.where(erosion==-9999)]=np.nan
+        muostNE=erosion
+        if standardize:
+            muostNE=(erosion-np.nanmean(erosion))/np.nanstd(erosion,axis=0)
+        pos_muostNE = np.where(~np.isnan(muostNE[1:-1]))[0]
+        pos_muostNE_hi = np.where((~np.isnan(muostNE[1:-1])) & ((muostNE[1:-1]-np.nanmean(muostNE[1:-1]))/np.nanstd(muostNE[1:-1])>th))[0]
+        pos_muostNE_lo = np.where((~np.isnan(muostNE[1:-1])) & ((muostNE[1:-1]-np.nanmean(muostNE[1:-1]))/np.nanstd(muostNE[1:-1])<-th))[0]
+        pos_muostNE_hilo = np.where((~np.isnan(muostNE[1:-1])) & (abs((muostNE[1:-1]-np.nanmean(muostNE[1:-1]))/np.nanstd(muostNE[1:-1]))>th))[0]
+        muostNE_short=muostNE[1:-1]
+
+    time_ero=ds_ero['time'][1:-1].values
+    
+    if i==0:
+        pos=pos_marre
+        pos_hi=pos_marre_hi
+        pos_lo=pos_marre_lo
+        pos_hilo=pos_marre_hilo
+        ero=marre_short
+        name='Marre Sale'
+    if i==1:
+        pos=pos_bykov
+        pos_hi=pos_bykov_hi
+        pos_lo=pos_bykov_lo
+        pos_hilo=pos_bykov_hilo
+        ero=bykov_short
+        name='Bykovsky'
+    if i==2:
+        pos=pos_muostN
+        pos_hi=pos_muostN_hi
+        pos_lo=pos_muostN_lo
+        pos_hilo=pos_muostN_hilo
+        ero=muostN_short
+        name='Muostakh N'
+    if i==3:
+        pos=pos_muostNE
+        pos_hi=pos_muostNE_hi
+        pos_lo=pos_muostNE_lo
+        pos_hilo=pos_muostNE_hilo
+        ero=muostNE_short
+        name='Muostakh NE'
+        
+    return pos, pos_hi, pos_lo, pos_hilo, ero, name, time_ero
     
     
