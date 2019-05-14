@@ -798,7 +798,8 @@ def order(x,y):
 def loaderos(i,th=0.8,standardize=True):
     
     ### USAGE:
-    # pos, pos_hi, pos_lo, pos_hilo, ero, name, time_ero = loaderos(i, th=0.8, standardize=True)
+    # for in range(4):
+    #     pos, pos_hi, pos_lo, pos_hilo, ero, name, time_ero = loaderos(i, th=0.8, standardize=True)
     
     import numpy as np
     import xarray as xr

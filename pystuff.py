@@ -780,6 +780,10 @@ def leg(loc='best', fontsize='small', frameon=False):
     import matplotlib.pyplot as plt
     plt.legend(loc=loc, frameon=frameon, fontsize=fontsize)
 
+def usetex(param=True):
+    from matplotlib import rc
+    rc('text', usetex=param)
+
 ################## order
 
 def order(x,y):
@@ -792,6 +796,7 @@ def order(x,y):
         yout[i]=y[minipos]
         x[minipos]=10**10
     return yout
+
     
 ##################### Load Coastal Erosion Rates
 
