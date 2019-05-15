@@ -751,6 +751,60 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
         return fitted, lo, up, r2, r2adj, coefs
     else:
         return fitted, lo, up, r2, r2adj
+
+def mlr_predict(X,coefs,stds=2):
+    # Uses the same idea from ps.mlr to predict
+    # Input:  X (the same provided to ps.mlr)
+    #         coefs (the output from ps.mlr)
+    # Usage:
+    #         predicted, lo, up = ps.mlr_predict(X,coefs)
+    import numpy as np
+    import numpy.matlib as npm
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smf
+    
+    # Check the number of covariates
+    if np.size(np.shape(X))==1:
+        nvars=1
+    elif np.size(np.shape(X))>1:
+        X=np.transpose(np.stack(X))
+        nvars=np.shape(X)[1]
+        
+    # Set up all possible combination of signs
+    signs = np.zeros((2**(nvars+1),nvars+1))
+    for j in range(nvars+1):
+        count=((2**(nvars+1))/2**(j+1))
+        fir=np.zeros((int(count),)); fir.fill(1)
+        sec=np.zeros((int(count),)); sec.fill(-1)
+        signs[:,j]=npm.repmat(np.hstack([fir,sec]),1,2**(j))
+        
+    # Calculates predicted values
+    if nvars==1:
+        pred = coefs[0,0] + X*(coefs[1,0])
+    else:
+        linterm = coefs[0,0]
+        angterm = 0
+        for n in np.arange(1,nvars+1):
+            angterm = angterm + X[:,n-1]*(coefs[n,0])
+        pred = linterm + angterm       
+        
+    # Make all possible lines, combining the signs of uncertainties
+    lines=np.zeros((len(X),2**(nvars+1)))
+    for i in range(2**(nvars+1)):
+        if nvars==1:
+            lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+        else:
+            linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
+            angterm = 0
+            for n in np.arange(1,nvars+1):
+                angterm = angterm + X[:,n-1]*(coefs[n,0]+signs[i,n]*stds*coefs[n,1])
+            lines[:,i] = linterm + angterm         
+    combs=np.stack(lines,axis=0)
+    lo=np.min(combs, axis=1)
+    up=np.max(combs, axis=1)
+    
+    return pred, lo, up
+
     
 def mlr_res(X,y):
     '''
