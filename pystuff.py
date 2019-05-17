@@ -166,7 +166,10 @@ def ddpca(x):
     
     # Eigenstuff
     eigenvals, eigenvecs = np.linalg.eig(corrmat)
-    
+   
+    # Loadings (=correlation between x and scores)
+    loadings=eigenvecs*np.sqrt(eigenvals)
+ 
     # Get PC's
     scores = mydata2 @ eigenvecs
     
@@ -179,7 +182,7 @@ def ddpca(x):
     # North's Rule of Thumb
     north=expl*(1+np.sqrt(2/nobs))-expl
     
-    return scores, eigenvals, eigenvecs, expl, expl_acc, means, stds, north
+    return scores, eigenvals, eigenvecs, expl, expl_acc, means, stds, north, loadings
 
 ##### 3) Remove Linear Trend #####
 
