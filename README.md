@@ -115,4 +115,64 @@ plt.show()
 
 ![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/periodogram.png "periodogram.png")
 
+### PCA Example
 
+```python
+# Calculate PCA
+scores, eigenvals, eigenvecs, expl, expl_acc, means, stds, north, loadings = ps.ddpca(X[rows,cols])
+
+# Combo-plot
+from matplotlib.gridspec import GridSpec
+gs = GridSpec(nrows=2, ncols=4)
+f=plt.figure(figsize=(6,6))
+
+ax=f.add_subplot(gs[0, 0:2])
+ps.usetex()
+ps.nospines(ax)
+plt.errorbar(np.arange(1,len(expl)+1),expl,yerr=[north,north], fmt='o',color='b',markeredgecolor='b')
+for i in range(3):
+    plt.text(i+1.2,expl[i],'$%.1f \pm %.1f$' %(expl[i],north[i]))
+plt.xticks(np.arange(1,len(expl)+1,1))
+plt.xlim((0.5,4))
+plt.xlabel('PC')
+plt.ylabel('Explained Variance [\%]')
+plt.text(0.6,76,'a',fontsize=14,fontweight='heavy')
+
+ax=f.add_subplot(gs[0, 2:])
+ps.nospines(ax)
+wdt=0.15
+plt.axhline(0,color='k')
+plt.bar(np.arange(3)-wdt,eigenvecs[0,:],facecolor='r',edgecolor='r',width=wdt)
+plt.bar(np.arange(3)    ,eigenvecs[1,:],facecolor='g',edgecolor='g',width=wdt)
+plt.bar(np.arange(3)+wdt,eigenvecs[2,:],facecolor='b',edgecolor='b',width=wdt)
+plt.ylabel('Eigenvector values')
+plt.xticks(np.arange(3)+0.125,['$1$','$2$','$3$'],usetex=True)
+plt.xlabel('PC')
+plt.axvline(0.625,color='lightgrey',ls='--')
+plt.axvline(1.625,color='lightgrey',ls='--')
+plt.text(-0.3,0.5,'Bykovsky',color='r')
+plt.text(-0.3,0.4,'Muostakh N',color='g')
+plt.text(-0.3,0.3,'Muostakh NE',color='b')
+plt.text(-0.4,0.7,'b',fontsize=14,fontweight='heavy')
+
+ax1=f.add_subplot(gs[1, 1:-1])
+ax1.set_xlim((-3,3)); plt.ylim((-3,3))
+ax1.set(xlabel='PC1', ylabel='PC2')
+ax1.axvline(0,color='k')
+ax1.axhline(0,color='k')
+ax1.plot(scores[:,0],scores[:,1],'o',markeredgecolor='grey',markerfacecolor='grey')
+ax1.text(-2.8,2.5,'c',fontsize=15,fontweight='heavy')
+ax2 = twinboth(ax1)
+ax2.set_xlim((-1.5,1.5)); plt.ylim((-1.5,1.5))
+ax2.set_xlabel('PC1 Loadings', labelpad=3)
+ax2.set_ylabel('PC2 Loadings', labelpad=14)
+ax2.arrow(0,0,loadings[0,0],loadings[0,1],width=0.005,color='r',lw=2)
+ax2.arrow(0,0,loadings[1,0],loadings[1,1],width=0.005,color='g',lw=2)
+ax2.arrow(0,0,loadings[2,0],loadings[2,1],width=0.005,color='b',lw=2)
+
+plt.tight_layout()
+plt.show()
+f.savefig('/work/uo1075/u241292/figures/draft/north_eigenvecs_biplot.png', dpi=300)
+f.savefig('/work/uo1075/u241292/figures/draft/north_eigenvecs_biplot.pdf')
+```
+![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/pca.png "pca.png")
