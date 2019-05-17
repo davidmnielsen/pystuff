@@ -176,7 +176,10 @@ def ddpca(x):
     for i in np.arange(1,len(expl)):
         expl_acc[i]=expl[i]+expl_acc[i-1]
     
-    return scores, eigenvals, eigenvecs, expl, expl_acc, means, stds
+    # North's Rule of Thumb
+    north=expl*(1+np.sqrt(2/nobs))-expl
+    
+    return scores, eigenvals, eigenvecs, expl, expl_acc, means, stds, north
 
 ##### 3) Remove Linear Trend #####
 
