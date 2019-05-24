@@ -1,8 +1,6 @@
 # pystuff
 
-Gathered useful functions to make daily life more simple.
-
-This documentation is not complete.
+Simple functions for data analysis in Python. Below are some examples.
 
 ```python
 import numpy as np

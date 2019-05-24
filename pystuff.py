@@ -844,6 +844,18 @@ def usetex(param=True):
     from matplotlib import rc
     rc('text', usetex=param)
 
+def ddhist(x,vmin,vmax,binsize, zeronan=True, density=False):
+    import numpy as np
+    binlims=np.arange(vmin,vmax+binsize,binsize)
+    x_count=np.zeros((len(binlims)-1,))
+    for i in range(len(binlims)-1):
+        x_count[i]=len(np.where(((x>binlims[i] )& (x<=binlims[i+1])))[0])
+    if zeronan:
+        x_count[x_count==0]=np.nan
+    if density:
+        x_count=x_count/np.nansum(x_count)
+    return binlims, x_count
+
 ################## order
 
 def order(x,y):
