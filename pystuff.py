@@ -4,12 +4,12 @@
 """
 This script is intended to put some usefull functions together, (organize my life/code,) and allow for some flexibility (in opposition to using built-in funcions of other software).
 Content:
-	1) bootscorr: calculates linear correlation coeffitient and significance level given n (default 10k) Bootstrap iterations.
-	2) ddpca: performs a Principal Component Analysis (PCA) of a given dataset (centers and standardizes data), using its correlation matrix.
-	3) ddetrend: removes linear trend (automatically treats NaN's)
-	4) getbox: calculats the area mean (does not weight). Returns the mean (a float) and the map with NaN's outside the area.
-	5) runmean: calculates running mean of given window size on x, and returns a series with same lenght as x
-	6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
+    1) bootscorr: calculates linear correlation coeffitient and significance level given n (default 10k) Bootstrap iterations.
+    2) ddpca: performs a Principal Component Analysis (PCA) of a given dataset (centers and standardizes data), using its correlation matrix.
+    3) ddetrend: removes linear trend (automatically treats NaN's)
+    4) getbox: calculats the area mean (does not weight). Returns the mean (a float) and the map with NaN's outside the area.
+    5) runmean: calculates running mean of given window size on x, and returns a series with same lenght as x
+    6) ddreg: returns linear trend (not slope) of x, with same length as x (useful for poltting)
     7) standardize: Standardize (and center) time series
     8) compress: Compresses a time series of length x into a time series of length x-1. Useful to treat leap years.
     9) season1d: Calculates seasonal means of given monthly time series (starting in Jan). Returns [time, season] array. Default is JAS for season=0 (i.e. out[:,0] for JAS means in all years).
@@ -1039,8 +1039,7 @@ def hcurl(u,v,lat,lon,regulargrid=True):
 
 #################### Bootstrapping Multiple Linear Regression
 
-def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas',
-             details=False, printSummary=False):
+def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', details=False, printSummary=False):
 
     """
     Bootstrapping Multiple Linear Regression (MLR)
@@ -1048,7 +1047,17 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas',
     IN:
         X: Numpy array, or list of numpy arrays, containing the independent variables [x1, x2, ... xn]
         y: Numpy array, the dependent variable.
-
+        n: Integer, number of iterations (optional, default n=1000)
+        conflev: Confidence level for the 2-tail test (optional, default conflev=0.95)
+        positions: 'new' generates new random sample positions for Bootstrap, 
+                   or numpy array shape(y) with fixed positions (optional, default='new')
+        uncertain: 'Betas' calculates the uncertainties of the fitted model based on the 
+                   distribution of regression coefficients, 'Fitted' uses the uncertainties from
+                   the distribution of fitted values themselves (optional, default='Betas')
+        details: Boolean, True returns more outputs, see below (optional, default=False)
+        printSummary: Boolean, prints out the summary of the MLR for the normal non-shuffled
+                      case (optional, default printSummary=False)
+        
     OUT:
     if details==False:
        fitted: Numpy array, shape(y), with the fitted values
@@ -1139,53 +1148,65 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas',
         lev = getConfLevel(corr,n)
 
         # 6) Get 1-sigma values from distributinos of regression coefficients
-        fitted_unc = np.zeros((length,))
         for vv in range(nvars+1):
             # Uncertainties of coefs are stored with the original coefs_0
             coefs_0[vv,1] = getOneSigma(coefs[vv,0,:],n,conflev)
-        for tt in range(length):
-            fitted_unc[tt] = getOneSigma(fitted[tt,:],n,conflev)
         r2_unc = getOneSigma(r2,n,conflev)
         r2adj_unc = getOneSigma(r2adj,n,conflev)
         
-        # Set up all possible combination of signs
-        signs = np.zeros((2**(nvars+1),nvars+1))
-        for j in range(nvars+1):
-            count=((2**(nvars+1))/2**(j+1))
-            fir=np.zeros((int(count),)); fir.fill(1)
-            sec=np.zeros((int(count),)); sec.fill(-1)
-            signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
-        
-        # Make all possible lines, combining the signs of uncertainties
-        if nvars>1:
-            XX=np.transpose(X)
-        lines=np.zeros((len(y),2**(nvars+1)))
-        for i in range(2**(nvars+1)):
-            if nvars==1:
-                lines[:,i] = coefs_0[0,0]+signs[i,0]*coefs_0[0,1] +\
-                             XX*(coefs_0[1,0]+signs[i,1]*coefs_0[1,1])
+        if uncertain=='Betas':
+            # Set up all possible combination of signs
+            signs = np.zeros((2**(nvars+1),nvars+1))
+            for j in range(nvars+1):
+                count=((2**(nvars+1))/2**(j+1))
+                fir=np.zeros((int(count),)); fir.fill(1)
+                sec=np.zeros((int(count),)); sec.fill(-1)
+                signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
+
+            # Make all possible lines, combining the signs of uncertainties
+            if nvars>1:
+                XX=np.transpose(X)
+            lines=np.zeros((len(y),2**(nvars+1)))
+            for i in range(2**(nvars+1)):
+                if nvars==1:
+                    lines[:,i] = coefs_0[0,0]+signs[i,0]*coefs_0[0,1] +\
+                                 XX*(coefs_0[1,0]+signs[i,1]*coefs_0[1,1])
+                else:
+                    linterm = coefs_0[0,0]+signs[i,0]*coefs_0[0,1]
+                    angterm = 0
+                    for nn in np.arange(1,nvars+1):
+                        angterm = angterm + XX[:,nn-1]*(coefs_0[nn,0]+signs[i,nn]*coefs_0[nn,1])
+                    lines[:,i] = linterm + angterm
+            combs=np.stack(lines,axis=0)
+            lo=np.min(combs, axis=1)
+            up=np.max(combs, axis=1)
+        elif uncertain=='Fitted':
+            fitted_unc = np.zeros((length,))
+            for tt in range(length):
+                fitted_unc[tt] = getOneSigma(fitted[tt,:],n,conflev)
+            lo=fitted_0-fitted_unc
+            up=fitted_0+fitted_unc
+        else:
+            a=0
+            print('ERROR: invalid option for uncertainty.')
+            print('Must be eiter: uncertain="Fitted" or uncertain="Betta".')
+            if details:
+                return a, a, a, a, a, a, a, a, a
             else:
-                linterm = coefs_0[0,0]+signs[i,0]*coefs_0[0,1]
-                angterm = 0
-                for nn in np.arange(1,nvars+1):
-                    angterm = angterm + XX[:,nn-1]*(coefs_0[nn,0]+signs[i,nn]*coefs_0[nn,1])
-                lines[:,i] = linterm + angterm
-        combs=np.stack(lines,axis=0)
-        lo=np.min(combs, axis=1)
-        up=np.max(combs, axis=1)
+                return a, a, a, a, a
         
     if uncertain=='Betas':
-        print('Using distribution of Betas to display uncertainties of fitted values.')
+        print('Using distribution of Betas to calculate uncertainties.')
         if details:
             return fitted_0, up, lo, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
         else:
             return fitted_0, up, lo, r2adj_0, r2adj_unc
     elif uncertain=='Fitted':
-        print('Using distribution of Fitted values to display uncertainties of fitted values.')
+        print('Using distribution of Fitted values to calculate uncertainties.')
         if details:
-            return fitted_0, fitted_unc, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
+            return fitted_0, up, lo, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
         else:
-            return fitted_0, fitted_unc, r2adj_0, r2adj_unc
+            return fitted_0, up, lo, r2adj_0, r2adj_unc
     
         
 def getConfLevel(x,n):
@@ -1224,4 +1245,3 @@ def getOneSigma(x,n,conflev):
     rsup=sort[qsup]
     rmean=sort[qmean]
     return abs(rmean-rinf)
-        
