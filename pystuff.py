@@ -981,4 +981,247 @@ def loaderos(i,th=0.8,standardize=True):
         
     return pos, pos_hi, pos_lo, pos_hilo, ero, name, time_ero
     
+###################### Horizontal Divergence and Vorticity
+
+def hdivg(u,v,lat,lon,regulargrid=True):
+    import numpy as np
     
+    # u and v must be 2D only [lat, lon]
+    
+    # Initialize empty variable
+    div = np.zeros(np.shape(u))
+    
+    # Calculate resolution
+    if regulargrid:
+        xres=abs(lon[1]-lon[0])
+        yres=abs(lat[1]-lat[0])
+        dy=110000*yres
+    
+    # Calculate horizontal divergence
+    for y in np.arange(1,len(lat)-1):
+        if ~regulargrid:
+            xres=abs(lon[y]-lon[y-1])
+            yres=abs(lat[y]-lat[y-1])
+            dy=110000*yres
+        dx=abs(110000*np.cos(lat[y]*(np.pi/180))*xres)
+        for x in np.arange(1,len(lon)-1):
+                div[y,x] = (u[y,x+1]-u[y,x-1])/(2*dx) + (v[y+1,x]-v[y+1,x])/(2*dy)
+                
+    return div
+
+def hcurl(u,v,lat,lon,regulargrid=True):
+    import numpy as np
+    
+    # u and v must be 2D only [lat, lon]
+    
+    # Initialize empty variable
+    vort = np.zeros(np.shape(u))
+    
+    # Calculate resolution
+    if regulargrid:
+        xres=abs(lon[1]-lon[0])
+        yres=abs(lat[1]-lat[0])
+        dy=110000*yres
+    
+    # Calculate vertical component of the curl
+    for y in np.arange(1,len(lat)-1):
+        if ~regulargrid:
+            xres=abs(lon[y]-lon[y-1])
+            yres=abs(lat[y]-lat[y-1])
+            dy=110000*yres
+        dx=abs(110000*np.cos(lat[y]*(np.pi/180))*xres)
+        for x in np.arange(1,len(lon)-1):
+                vort[y,x] = (v[y,x+1]-v[y,x-1])/(2*dx) + (u[y+1,x]-u[y+1,x])/(2*dy)
+                
+                
+    return vort 
+
+
+#################### Bootstrapping Multiple Linear Regression
+
+def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas',
+             details=False, printSummary=False):
+
+    """
+    Bootstrapping Multiple Linear Regression (MLR)
+
+    IN:
+        X: Numpy array, or list of numpy arrays, containing the independent variables [x1, x2, ... xn]
+        y: Numpy array, the dependent variable.
+
+    OUT:
+    if details==False:
+       fitted: Numpy array, shape(y), with the fitted values
+       up: Numpy array, shape(y), with the fitted values *plus* the uncertainty
+       lo: Numpy array, shape(y), with the fitted values *minus* the uncertainty
+       r2adj: Adjusted coefficient of determination
+       r2adj_unc: The uncertainty of the adjusted coefficient of determination
+
+    USAGE:
+    fitted, up, lo, r2adj, r2adj_unc = bootsmlr(X,y)
+
+    """
+
+    import numpy as np
+    
+    # Check the number of covariates
+    if np.size(np.shape(X))==1:
+        nvars=1
+        length=np.shape(X)[0]
+    elif np.size(np.shape(X))>1:
+        nvars=np.shape(X)[0]
+        length=np.shape(X)[1]
+        X=np.stack(X)
+        
+    # Check consistency in dimensions
+    if length!=len(y):
+        print('ERROR: X and Y must have the same length.')
+        print('Given dimensions were:')
+        print('np.shape(x)=%s' %str(np.shape(X)))
+        print('np.shape(y)=%s' %str(np.shape(y)))
+        return
+    else:
+        
+        # 0) Check given parameters
+        if type(positions)==str:
+            if positions=='new':
+                # Create random positions
+                import random
+                rand=np.zeros((length,n))
+                for nn in range(n):
+                    for i in range(length):
+                        rand[i,nn]=random.randint(0,length-1) 
+            else:
+                print('ERROR: Invalid position argument.')
+                print('Must be eiter "new" or a numpy-array with shape (len(X),n)')
+                return
+        else:
+            if len(x)!=np.shape(positions)[0]:
+                print('ERROR: X, Y and given positions[0] must have the same length.')
+                print('Given dimensions were:')
+                print('np.shape(x)=%s' %str(np.shape(x)))
+                print('np.shape(positions)[0]=%s' %str(np.shape(positions[0])))
+                return
+            elif n>np.shape(positions)[1]:
+                print('ERROR: n must be <= np.shape(positions)[1]')
+                print('Given dimensions were:')
+                print('np.shape(n)=%s' %str(np.shape(n)))
+                print('np.shape(positions)[1]=%s' %str(np.shape(positions[1])))
+                return
+            else:
+                # Use given positions
+                given_n=np.shape(positions)[1]
+                rand=positions
+                
+        # 1) MLR on original order
+        fitted_0, lo_0, up_0, r2_0, r2adj_0, coefs_0 = ps.mlr(X,y,returnCoefs=True,
+                                                              printSummary=printSummary)
+        
+        # 2) Shufle data
+        schufx=np.zeros((length ,n , nvars))
+        schufy=np.zeros((length ,n ))
+        for nn in range(n):
+            for ii in range(length):
+                schufx[ii,nn,:]=X[:,int(rand[ii,nn])]
+                schufy[ii,nn]=y[int(rand[ii,nn])]
+
+        # MLR on Shuffled Data
+        fitted = np.zeros((length,n))
+        r2 = np.zeros((n,))
+        r2adj = np.zeros((n,))
+        coefs = np.zeros((nvars+1,2,n)) # [intercept + xn, se, boots iterations]
+        for nn in range(n):
+            fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = ps.mlr(np.transpose(schufx[:,nn,:]),
+                                                                          schufy[:,nn],returnCoefs=True)
+        
+        # 5) Get confidence level
+        corr=np.sqrt(r2)
+        lev = getConfLevel(corr,n)
+
+        # 6) Get 1-sigma values from distributinos of regression coefficients
+        fitted_unc = np.zeros((length,))
+        for vv in range(nvars+1):
+            # Uncertainties of coefs are stored with the original coefs_0
+            coefs_0[vv,1] = getOneSigma(coefs[vv,0,:],n,conflev)
+        for tt in range(length):
+            fitted_unc[tt] = getOneSigma(fitted[tt,:],n,conflev)
+        r2_unc = getOneSigma(r2,n,conflev)
+        r2adj_unc = getOneSigma(r2adj,n,conflev)
+        
+        # Set up all possible combination of signs
+        signs = np.zeros((2**(nvars+1),nvars+1))
+        for j in range(nvars+1):
+            count=((2**(nvars+1))/2**(j+1))
+            fir=np.zeros((int(count),)); fir.fill(1)
+            sec=np.zeros((int(count),)); sec.fill(-1)
+            signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
+        
+        # Make all possible lines, combining the signs of uncertainties
+        if nvars>1:
+            XX=np.transpose(X)
+        lines=np.zeros((len(y),2**(nvars+1)))
+        for i in range(2**(nvars+1)):
+            if nvars==1:
+                lines[:,i] = coefs_0[0,0]+signs[i,0]*coefs_0[0,1] +\
+                             XX*(coefs_0[1,0]+signs[i,1]*coefs_0[1,1])
+            else:
+                linterm = coefs_0[0,0]+signs[i,0]*coefs_0[0,1]
+                angterm = 0
+                for nn in np.arange(1,nvars+1):
+                    angterm = angterm + XX[:,nn-1]*(coefs_0[nn,0]+signs[i,nn]*coefs_0[nn,1])
+                lines[:,i] = linterm + angterm
+        combs=np.stack(lines,axis=0)
+        lo=np.min(combs, axis=1)
+        up=np.max(combs, axis=1)
+        
+    if uncertain=='Betas':
+        print('Using distribution of Betas to display uncertainties of fitted values.')
+        if details:
+            return fitted_0, up, lo, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
+        else:
+            return fitted_0, up, lo, r2adj_0, r2adj_unc
+    elif uncertain=='Fitted':
+        print('Using distribution of Fitted values to display uncertainties of fitted values.')
+        if details:
+            return fitted_0, fitted_unc, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
+        else:
+            return fitted_0, fitted_unc, r2adj_0, r2adj_unc
+    
+        
+def getConfLevel(x,n):
+    '''
+    Returns the quantiles (rrinf,rrsup) when one of them crosses the 0 line,
+    i.e. testing the null hypothesis that the quantity equals zero.
+    '''
+    import numpy as np
+    sort=sorted(x)
+    lev=np.nan
+    minsig=np.nan
+    tails=np.arange(0.001,0.999,0.001) 
+    for i in range(len(tails)):
+        if np.isnan(minsig):
+            tail=tails[i]/2
+            qinf=round(n*tail)
+            qsup=round(n-qinf)
+            rrinf=sort[int(qinf)]
+            rrsup=sort[int(qsup-1)]
+            if rrinf>0 or rrsup<0:
+                minsig=tail*2
+                lev=(1-minsig)
+    return lev
+
+def getOneSigma(x,n,conflev):
+    '''
+    Returns the values for mean+std and mean-std (rinf, rsup)
+    '''
+    import numpy as np
+    sort=sorted(x)
+    tail=(1-conflev)/2
+    qinf=round(n*tail)
+    qsup=round(n-qinf)
+    qmean=round(n*0.5)
+    rinf=sort[qinf]
+    rsup=sort[qsup]
+    rmean=sort[qmean]
+    return abs(rmean-rinf)
+        
