@@ -1127,11 +1127,17 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
                                                               printSummary=printSummary)
         
         # 2) Shufle data
-        schufx=np.zeros((length ,n , nvars))
+        if nvars==1:
+            schufx=np.zeros((length ,n))
+        else:
+            schufx=np.zeros((length ,n , nvars))
         schufy=np.zeros((length ,n ))
         for nn in range(n):
             for ii in range(length):
-                schufx[ii,nn,:]=X[:,int(rand[ii,nn])]
+                if nvars==1:
+                    schufx[ii,nn]=X[int(rand[ii,nn])]
+                else:
+                    schufx[ii,nn,:]=X[:,int(rand[ii,nn])]
                 schufy[ii,nn]=y[int(rand[ii,nn])]
 
         # MLR on Shuffled Data
@@ -1140,8 +1146,12 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
         r2adj = np.zeros((n,))
         coefs = np.zeros((nvars+1,2,n)) # [intercept + xn, se, boots iterations]
         for nn in range(n):
-            fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = ps.mlr(np.transpose(schufx[:,nn,:]),
+            if nvars==1:
+                fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = ps.mlr(np.transpose(schufx[:,nn]),
                                                                           schufy[:,nn],returnCoefs=True)
+            else:
+                fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = ps.mlr(np.transpose(schufx[:,nn,:]),
+                                                                              schufy[:,nn],returnCoefs=True)
         
         # 5) Get confidence level
         corr=np.sqrt(r2)
@@ -1166,6 +1176,8 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
             # Make all possible lines, combining the signs of uncertainties
             if nvars>1:
                 XX=np.transpose(X)
+            else:
+                XX=X.copy()
             lines=np.zeros((len(y),2**(nvars+1)))
             for i in range(2**(nvars+1)):
                 if nvars==1:
@@ -1189,7 +1201,7 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
         else:
             a=0
             print('ERROR: invalid option for uncertainty.')
-            print('Must be eiter: uncertain="Fitted" or uncertain="Betta".')
+            print('Must be eiter: uncertain="Fitted" or uncertain="Betas".')
             if details:
                 return a, a, a, a, a, a, a, a, a
             else:
@@ -1245,3 +1257,5 @@ def getOneSigma(x,n,conflev):
     rsup=sort[qsup]
     rmean=sort[qmean]
     return abs(rmean-rinf)
+
+
