@@ -544,19 +544,19 @@ def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
     else:
         return red
 
-def theored(dt,rho,meanP,f):
-    import numpy as np
-    fnyq=1/(2*dt)
-    theo=np.zeros((len(meanP,)))
-    for i in range(len(meanP)):
-        theo[i]=(1-rho**2)/(1-(2*rho*np.cos(np.pi*f[i]/fnyq))+rho**2)
-    theoun=theo[0]
-    theo[0]=0
-    Art=np.sum(theo)/(len(meanP))
-    theo[0]=theoun
-    Ax=np.sum(meanP)/len(meanP)
-    theo=theo*(Ax/Art);
-    return theo
+# def theored(dt,rho,meanP,f):
+#     import numpy as np
+#     fnyq=1/(2*dt)
+#     theo=np.zeros((len(meanP,)))
+#     for i in range(len(meanP)):
+#         theo[i]=(1-rho**2)/(1-(2*rho*np.cos(np.pi*f[i]/fnyq))+rho**2)
+#     theoun=theo[0]
+#     theo[0]=0
+#     Art=np.sum(theo)/(len(meanP))
+#     theo[0]=theoun
+#     Ax=np.sum(meanP)/len(meanP)
+#     theo=theo*(Ax/Art);
+#     return theo
 
 def low_pass_weights(window, cutoff):
     """Calculate weights for a low pass Lanczos filter.
@@ -606,38 +606,49 @@ def periods(x,dt,returnPeriods=True, nsim=1000):
     per=1/f
     max5=np.zeros((5,3))
     psdc=psd.copy()
-    
+
     # Get the 5 larges periods
     for i in range(5):
         max5[i,0]=f[psdc==max(psdc)]
         max5[i,1]=psdc[psdc==max(psdc)]
         max5[i,2]=per[psdc==max(psdc)]
         psdc[psdc==max(psdc)]=0
-    
-    # Calculate nsim red-noise time series
-    red =rednoise(len(x), rhoAlt(x,dt), nsim ,dist='uniform')
-    
+
     # Calculate periodograms of the nsim red-noise series
     fn=np.zeros((len(f),nsim))
     Pn=np.zeros((len(f),nsim))
-    for n in range(nsim):
-        fn[:,n], Pn[:,n] = signal.periodogram(red[:,n],fs=dt,detrend='linear')
-        
+    red=rednoise(len(x),rho(x),dist='normal',nsim=nsim)
+    for i in range(nsim):
+    #         if np.remainder(i,100)==0:
+    #             print('%.0f %%' %(i/10))
+        fn[:,i], Pn[:,i] = signal.periodogram(red[:,i],fs=dt,detrend='linear')
+
     # Mean spectrum of nsim simulations
-    meanP=np.mean(Pn,axis=1)
-    
-    # Calculate theoretical mean spectrum of nsim simulations
-    theo = theored(1/dt,rhoAlt(x,dt),meanP,f)
-    
-    # Calculates confidence curves
-    nw=5
-    coefs=np.zeros((100,))
-    conflevs=np.zeros((100,len(f)))
-    for c in range(100):
-        coefs[c]=chi2.ppf(c/100, 2*(2*nw-1))/(2*(2*nw-1))
-        conflevs[c,:]=coefs[c]*theo
+    meanRed=np.mean(Pn,axis=1)
+
+    # Get Percentiles of Distribution of Red-Noise Spectra
+    pctl=np.zeros((len(f),4)) # 0.8, 0.9, 0.95, 0.99
+    for i in range(len(f)):
+        pctl[i,0]=getPercentile(Pn[i,:],0.80)
+        pctl[i,1]=getPercentile(Pn[i,:],0.90)
+        pctl[i,2]=getPercentile(Pn[i,:],0.95)
+        pctl[i,3]=getPercentile(Pn[i,:],0.99)
         
-    return f, psd, conflevs, max5, meanP 
+    return f, psd, pctl, max5, meanRed
+
+def getPercentile(x,pctl=0.95):
+    '''
+    Returns the values for the given percentile of variable
+    '''
+    import numpy as np
+    n=len(x)
+    sort=sorted(x)
+    quant=round(n*pctl)
+    qmean=round(n*0.5)
+    rquant=sort[quant]
+    rqmean=sort[qmean]
+#     return abs(rqmean-rquant)
+    return rquant 
     
 ################ MLR
 def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
@@ -1127,11 +1138,17 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
                                                               printSummary=printSummary)
         
         # 2) Shufle data
-        schufx=np.zeros((length ,n , nvars))
+        if nvars==1:
+            schufx=np.zeros((length ,n))
+        else:
+            schufx=np.zeros((length ,n , nvars))
         schufy=np.zeros((length ,n ))
         for nn in range(n):
             for ii in range(length):
-                schufx[ii,nn,:]=X[:,int(rand[ii,nn])]
+                if nvars==1:
+                    schufx[ii,nn]=X[int(rand[ii,nn])]
+                else:
+                    schufx[ii,nn,:]=X[:,int(rand[ii,nn])]
                 schufy[ii,nn]=y[int(rand[ii,nn])]
 
         # MLR on Shuffled Data
@@ -1140,8 +1157,12 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
         r2adj = np.zeros((n,))
         coefs = np.zeros((nvars+1,2,n)) # [intercept + xn, se, boots iterations]
         for nn in range(n):
-            fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = mlr(np.transpose(schufx[:,nn,:]),
+            if nvars==1:
+                fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = mlr(np.transpose(schufx[:,nn]),
                                                                           schufy[:,nn],returnCoefs=True)
+            else:
+                fitted[:,nn], _, _, r2[nn], r2adj[nn], coefs[:,:,nn] = mlr(np.transpose(schufx[:,nn,:]),
+                                                                              schufy[:,nn],returnCoefs=True)
         
         # 5) Get confidence level
         corr=np.sqrt(r2)
@@ -1166,6 +1187,8 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
             # Make all possible lines, combining the signs of uncertainties
             if nvars>1:
                 XX=np.transpose(X)
+            else:
+                XX=X.copy()
             lines=np.zeros((len(y),2**(nvars+1)))
             for i in range(2**(nvars+1)):
                 if nvars==1:
@@ -1196,13 +1219,13 @@ def bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', det
                 return a, a, a, a, a
         
     if uncertain=='Betas':
-        print('Using distribution of Betas to calculate uncertainties.')
+        #print('Using distribution of Betas to calculate uncertainties.')
         if details:
             return fitted_0, up, lo, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
         else:
             return fitted_0, up, lo, r2adj_0, r2adj_unc
     elif uncertain=='Fitted':
-        print('Using distribution of Fitted values to calculate uncertainties.')
+        #print('Using distribution of Fitted values to calculate uncertainties.')
         if details:
             return fitted_0, up, lo, r2adj_0, r2adj_unc, r2_0, r2_unc, coefs_0, coefs
         else:
@@ -1245,3 +1268,5 @@ def getOneSigma(x,n,conflev):
     rsup=sort[qsup]
     rmean=sort[qmean]
     return abs(rmean-rinf)
+
+
