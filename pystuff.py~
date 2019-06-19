@@ -174,7 +174,7 @@ def ddpca(x):
     scores = mydata2 @ eigenvecs
     
     # Explained variance
-    expl=eigenvals*100/sum(eigenvals)
+    expl=np.sort(eigenvals)[::-1]*100/sum(eigenvals)
     expl_acc=expl.copy()
     for i in np.arange(1,len(expl)):
         expl_acc[i]=expl[i]+expl_acc[i-1]
@@ -617,7 +617,7 @@ def periods(x,dt,returnPeriods=True, nsim=1000):
     # Calculate periodograms of the nsim red-noise series
     fn=np.zeros((len(f),nsim))
     Pn=np.zeros((len(f),nsim))
-    red=rednoise(len(x),rho(x),dist='normal',nsim=nsim)
+    red=rednoise(len(x),rhoAlt(x,dt=dt),dist='normal',nsim=nsim)
     for i in range(nsim):
     #         if np.remainder(i,100)==0:
     #             print('%.0f %%' %(i/10))
@@ -649,6 +649,37 @@ def getPercentile(x,pctl=0.95):
     rqmean=sort[qmean]
 #     return abs(rqmean-rquant)
     return rquant 
+
+def ensPctl(x,pctl=[0.025,0.975]):
+    '''
+    x is an ensemble f variables, such as the output of ps.rednoise()
+    '''
+    import numpy as np
+    pctl=np.zeros((len(x),len(pctl)))
+    for i in range(len(x)):
+        pctl[i,0]=ps.getPercentile(x[i,:],0.975)
+        pctl[i,1]=ps.getPercentile(x[i,:],0.025)
+    return pctl
+
+def bestEns(ens,x,pctl=0.95):
+    import numpy as np
+    corrs=np.zeros((nsim,))
+    for m in range(nsim):
+        r=np.corrcoef(x,ens[:,m])
+        corrs[m]=r[0,1]
+
+    sortr=np.sort(corrs)
+    threshold=ps.getPercentile(sortr,pctl=pctl)
+
+    bestens=ens[:,0]; bestens.fill(np.nan)
+    count=0
+    for m in range(nsim):
+        if corrs[m]>=threshold:
+#             bestens=bestens+ens[:,m]
+            bestens=np.vstack([bestens,ens[:,m]])
+            count=count+1
+#     ensmean=np.
+    return np.transpose(bestens), np.nanmean(bestens,axis=0), count
     
 ################ MLR
 def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
@@ -1268,5 +1299,14 @@ def getOneSigma(x,n,conflev):
     rsup=sort[qsup]
     rmean=sort[qmean]
     return abs(rmean-rinf)
+
+def twinboth(ax):
+    newax = ax.figure.add_subplot(ax.get_subplotspec(), frameon=False)
+    newax.xaxis.set(label_position='top')
+    newax.yaxis.set(label_position='right', offset_position='right')
+    newax.yaxis.get_label().set_rotation(-90) # Optional...
+    newax.yaxis.tick_right()
+    newax.xaxis.tick_top()
+    return newax
 
 

@@ -1,18 +1,24 @@
-# pystuff
+## pystuff
 
-Simple functions for data analysis in Python. Below are some examples.
+Copy-and-paste references for time-series analysis with Python.
 
+
+### Usual Imports
 ```python
 import numpy as np
 import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
+```
+
+### Import this module from your path
+```python
 import sys
 sys.path.append('/home/zmaw/u241292/scripts/python/pystuff')
 import pystuff.pystuff as ps
 ```
 
-### Use Xarray and Pandas to read your data
+### Read your data
 
 ```python
 # ERA-Interim SST anomalies, weighted by sqrt(cos(lat))
@@ -30,94 +36,104 @@ time=pd.to_datetime(ds['time'].values)
 # Area Average
 nasst, sasst_map = ps.getbox([0,60,280,360],lat,lon,myvar,returnmap=True)
 
-# Standardize (and center)
+# Standardize (center=True is default)
 nasstn = ps.standardize(nasst)
 
 # Running Mean
-nasstn_rm = ps.runmean(nasstn,window=121)
+nasstn_rm = ps.runmean(nasstn,window=5*12)
+nasstn_rm_fill = ps.runmean(nasstn,window=5*12,fillaround=True)
 
 # Detrend (redundant with ddreg, to some extent)
 # If returnTrend=False, only detended series is returned
 nasstndt, slope, trend = ps.ddetrend(nasstn, returnTrend=True)
 
-# The trend can also be easily taken from:
-# lfit = ps.ddreg(np.arange(len(nasst)),nasst)
+# The trend line can also be taken from:
+trend2 = ps.ddreg(range(len(nasst)),nasst)
+
+# Annual Mean
+annual=ps.annualmean(nasstndt)
 
 # Low-pass Lanczos Filter
 dt=12 # month
 cutoff=5 # years
 low, low_nonan = ps.lanczos(nasstndt,dt*cutoff,returnNonan=True)
 
-# Plot
-fig = plt.figure(figsize=(10,4))
+# Example Plot
+fig = plt.figure(figsize=(9,4.5))
 
-fig.add_subplot(1,2,1)
-plt.plot(time,nasstn,'b',lw=0.2)
-plt.plot(time,nasstn_rm,'b',lw=2)
-plt.plot(time,trend,'--r', lw=2)
+ax=fig.add_subplot(1,2,1)
+ps.nospines(ax)
+plt.axhline(0,color='grey',ls='--')
+plt.plot(time,nasstn,'b',lw=0.2, label='Monthly NASST')
+plt.plot(time,nasstn_rm,'b',lw=2, label='5-year running mean')
+plt.plot(time,low+trend,'g',lw=2, label='5-year low-pass Lanczos filter')
+plt.plot(time,trend,'-r', lw=2, label='Trend line')
+plt.text(0.1,0.8,'Trend=%.2f std year$^{-1}$' %(float(slope)*12), color='r',
+         transform=plt.gcf().transFigure)
 plt.ylim((-2.5,2.5))
 plt.ylabel('std. units')
-plt.title('Detrended and smoothed with running mean')
+plt.title('NASST')
+plt.title('a', loc='left',fontweight='bold', fontsize=14)
+ps.leg(loc='lower right', fontsize=9)
 
-fig.add_subplot(1,2,2)
-plt.plot(time,nasstndt,'b',lw=0.2)
-plt.plot(time,low,'b',lw=2)
-plt.ylim((-2.5,2.5))
-plt.title('Low-pass filtered')
-
+ps.usetex(False)
 plt.tight_layout()
 plt.show()
+
+fig.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/timeseries.png')		
 ```
 
 ![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/timeseries.png "timeseries.png")
 
-### Analysis on frequency domain
+### Periodogram
 
 ```python
-fig = plt.figure(figsize=(12,5))
+fig = plt.figure(figsize=(5,4.5))
 
-fig.add_subplot(1,2,1)
-f, psd, conf, max5, psdm = ps.periods(low_nonan, 12)
-plt.plot(f, psd, color='b', linewidth=2, label='Spectrum')
-plt.plot(f,psdm, 'r', label='Mean spectrum of 1000 red-noise time series')
-plt.plot(f,conf[50,:], '--r', label='50% conf. level')
-plt.plot(f,conf[99,:], ':k', label='99% conf. level')
-plt.plot(f,conf[95,:], '--k', label='95% conf. level')
-plt.plot(f,conf[90,:], '-k', label='90% conf. level')
+ax=fig.add_subplot(111)
+ps.nospines(ax)
+
+# Calculate yearly periodogram on monthly data (Monte Carlo with 10k iterations)
+f, psd, pctl, max5, meanRed = ps.periods(nasstndt, dt=12, nsim=10000)
+
+plt.plot(f, psd,'b', lw=2, label='NASST Power Spectrum')
+plt.plot(f,meanRed, 'r', lw=2, label='Mean of 10k Red-Noise Spectra')
+plt.plot(f,pctl[:,0], '--k', label='80% Percentile')
+plt.plot(f,pctl[:,1], '-k', label='90% Percentile')
+plt.plot(f,pctl[:,2], '--g', label='95% Percentile')
+plt.plot(f,pctl[:,3], '-g', label='99% Percentile')
 plt.xlabel('Frequency [year$^{-1}$]')
 plt.ylabel('PSD [Units$^{2}$ year]')
-for i in range(3):
-    plt.text(max5[i,0],max5[i,1],'%.1f yr' %max5[i,2])
-plt.xlim((0,2))
-plt.legend(loc='upper right', fontsize='small', frameon=True)
-plt.title('Spectrum of low-pass filtered data')
+plt.xlim((0,2.5))
+plt.title('Periodogram of NASST')
+plt.title('b', loc='left',fontweight='bold', fontsize=14)
+ps.leg(fontsize=10, frameon=True)
 
-fig.add_subplot(1,2,2)
-f, psd, conf, max5, psdm = ps.periods(nasstdt, 12)
-plt.plot(f, psd, color='b', linewidth=2)
-plt.plot(f,conf[50,:], '--r')
-plt.plot(f,psdm, 'r')
-plt.plot(f,conf[99,:], ':k')
-plt.plot(f,conf[95,:], '--k')
-plt.plot(f,conf[90,:], '-k')
-plt.xlabel('Frequency [year$^{-1}$]')
-plt.ylabel('PSD [Units$^{2}$ year]')
-for i in range(3):
-    plt.text(max5[i,0],max5[i,1],'%.1f yr' %max5[i,2])
-#plt.xlim((0,2))
-plt.title('Spectrum of original data')
+# Print maximum periods on graph
+for i in range(5):
+    t=plt.text(max5[i,0],max5[i,1],'%.0f yr' %round(max5[i,2]), color='blue')
+    t.set_bbox(dict(facecolor='white', alpha=0.5, edgecolor='w'))
+
 
 plt.tight_layout()
 plt.show()
+
+fig.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/periodogram.png')
 ```
 
 ![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/periodogram.png "periodogram.png")
 
-### PCA Example
+### PCA
 
 ```python
+# Get data from any 3 grid cells
+x1=myvar[:,100,100]
+x2=myvar[:,100,200]
+x3=myvar[:,100,300]
+X=np.transpose([x1,x3,x2]) # np.shape(X) = (468, 3)
+
 # Calculate PCA
-scores, eigenvals, eigenvecs, expl, expl_acc, means, stds, north, loadings = ps.ddpca(X[rows,cols])
+scores, eigenvals, eigenvecs, expl, expl_acc, means, stds, north, loadings = ps.ddpca(X)
 
 # Combo-plot
 from matplotlib.gridspec import GridSpec
@@ -134,7 +150,7 @@ plt.xticks(np.arange(1,len(expl)+1,1))
 plt.xlim((0.5,4))
 plt.xlabel('PC')
 plt.ylabel('Explained Variance [\%]')
-plt.text(0.6,76,'a',fontsize=14,fontweight='heavy')
+plt.text(0.6,46.5,'a',fontsize=14,fontweight='heavy')
 
 ax=f.add_subplot(gs[0, 2:])
 ps.nospines(ax)
@@ -148,19 +164,20 @@ plt.xticks(np.arange(3)+0.125,['$1$','$2$','$3$'],usetex=True)
 plt.xlabel('PC')
 plt.axvline(0.625,color='lightgrey',ls='--')
 plt.axvline(1.625,color='lightgrey',ls='--')
-plt.text(-0.3,0.5,'Bykovsky',color='r')
-plt.text(-0.3,0.4,'Muostakh N',color='g')
-plt.text(-0.3,0.3,'Muostakh NE',color='b')
-plt.text(-0.4,0.7,'b',fontsize=14,fontweight='heavy')
+plt.text(0.8,0.5,'Series 1',color='r')
+plt.text(0.8,0.4,'Series 2',color='g')
+plt.text(0.8,0.3,'Series 3',color='b')
+plt.text(-0.4,0.9,'b',fontsize=14,fontweight='heavy')
 
 ax1=f.add_subplot(gs[1, 1:-1])
 ax1.set_xlim((-3,3)); plt.ylim((-3,3))
 ax1.set(xlabel='PC1', ylabel='PC2')
 ax1.axvline(0,color='k')
 ax1.axhline(0,color='k')
-ax1.plot(scores[:,0],scores[:,1],'o',markeredgecolor='grey',markerfacecolor='grey')
+ax1.plot(scores[:,0],scores[:,1],'o',markersize=3,
+         markeredgecolor='lightgrey',markerfacecolor='lightgrey')
 ax1.text(-2.8,2.5,'c',fontsize=15,fontweight='heavy')
-ax2 = twinboth(ax1)
+ax2 = ps.twinboth(ax1)
 ax2.set_xlim((-1.5,1.5)); plt.ylim((-1.5,1.5))
 ax2.set_xlabel('PC1 Loadings', labelpad=3)
 ax2.set_ylabel('PC2 Loadings', labelpad=14)
@@ -170,7 +187,58 @@ ax2.arrow(0,0,loadings[2,0],loadings[2,1],width=0.005,color='b',lw=2)
 
 plt.tight_layout()
 plt.show()
-f.savefig('/work/uo1075/u241292/figures/draft/north_eigenvecs_biplot.png', dpi=300)
-f.savefig('/work/uo1075/u241292/figures/draft/north_eigenvecs_biplot.pdf')
+
+f.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/pca.png')
 ```
 ![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/pca.png "pca.png")
+
+### Fake Ensemble Subsampling
+
+```python
+# Create a fake ensemble of nsim members of red noise (preserving the lag-dt) correlation
+nsim=1000
+dt=1
+ens=ps.rednoise(len(nasstndt),ps.rhoAlt(nasstndt, dt=dt), nsim=nsim)
+
+# Get Percentiles of Ensemble Spread
+spread=ensPctl(ens,pctl=[0.025,0.975])
+
+# Get the best 5% ensemble members, based on correlation
+bestens, ensmean, nmembers = bestEns(ens,nasstndt,pctl=0.95)
+
+
+# Plot
+f=plt.figure(figsize=(8,6))
+
+ax=f.add_subplot(2,1,1)
+ps.nospines(ax)
+plt.plot(time, ens,'lightgrey', lw=0.5)
+# plt.fill_between(time, spread[:,0],spread[:,1],facecolor='k',alpha=0.1,label='2 std')
+plt.plot(time, ens[:,1],'lightgrey', lw=1, label='All 10k Ensemble Members')
+plt.plot(time, ens[:,1],'r', lw=0.5, label='Member 1')
+plt.plot(time, np.nanmean(ens,axis=1),'k', lw=2, label='Full Ensemble Mean')
+plt.plot(time, nasstndt,'b',lw=1,label='NASST')
+plt.ylim((-6,6))
+plt.ylabel('s.d.')
+plt.title('Full Ensemble (10k Members)')
+ps.leg(loc='upper right', frameon=True)
+
+ax=f.add_subplot(2,1,2)
+ps.nospines(ax)
+plt.plot(time,bestens[:,0],'lightgrey', label='Best 5\% of Ensemble (50 members)')
+plt.plot(time,bestens,'lightgrey')
+plt.plot(time,ensmean,'k', lw=2, label='Best Ensemble Mean')
+plt.plot(time,nasstndt,'b',lw=1,label='NASST')
+plt.plot(time,low,'g',lw=2,label='NASST low-pass filt.')
+plt.ylim((-6,6))
+plt.ylabel('s.d.')
+plt.title('Best Ensemble (50 Members)')
+ps.leg(loc='upper right', frameon=True)
+
+plt.tight_layout()
+plt.show()
+f.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/ensemeble.png')
+```
+![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/ensemeble.png "ensemeble.png")
+
+
