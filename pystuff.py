@@ -657,19 +657,20 @@ def ensPctl(x,pctl=[0.025,0.975]):
     import numpy as np
     pctl=np.zeros((len(x),len(pctl)))
     for i in range(len(x)):
-        pctl[i,0]=ps.getPercentile(x[i,:],0.975)
-        pctl[i,1]=ps.getPercentile(x[i,:],0.025)
+        pctl[i,0]=getPercentile(x[i,:],0.975)
+        pctl[i,1]=getPercentile(x[i,:],0.025)
     return pctl
 
 def bestEns(ens,x,pctl=0.95):
     import numpy as np
+    nsim=np.shape(ens)[1]
     corrs=np.zeros((nsim,))
     for m in range(nsim):
         r=np.corrcoef(x,ens[:,m])
         corrs[m]=r[0,1]
 
     sortr=np.sort(corrs)
-    threshold=ps.getPercentile(sortr,pctl=pctl)
+    threshold=getPercentile(sortr,pctl=pctl)
 
     bestens=ens[:,0]; bestens.fill(np.nan)
     count=0
