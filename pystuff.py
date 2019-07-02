@@ -1310,4 +1310,25 @@ def twinboth(ax):
     newax.xaxis.tick_top()
     return newax
 
+def circlemap():
+    '''
+    This function returns the circle boudary for Arctic maps made with Cartopy.
+    USAGE:
+        import matplotlib.pyplot as plt
+        import cartopy.crs as ccrs
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_subplot(111,projection=ccrs.NorthPolarStereo())
+        ax.set_extent([-180, 180, 63, 90], crs=ccrs.PlateCarree())
+        ax.coastlines()
+        circle=ps.circlemap()
+        ax.set_boundary(circle, transform=ax.transAxes)
+        plt.show()
+    '''
+    import numpy as np
+    import matplotlib.path as mpath
+    theta = np.linspace(0, 2*np.pi, 100)
+    center, radius = [0.5, 0.5], 0.5
+    verts = np.vstack([np.sin(theta), np.cos(theta)]).T
+    circle = mpath.Path(verts * radius + center)
+    return circle
 
