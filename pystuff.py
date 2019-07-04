@@ -1332,3 +1332,95 @@ def circlemap():
     circle = mpath.Path(verts * radius + center)
     return circle
 
+
+###################### ACD Utilities #########################
+
+
+'''
+Functions to work with the ACD Database (Lantuit et al. 2012)
+David M Nielsen, david.nielsen@uni-hamburg.de
+'''
+
+def ACD_centroids(file='/work/uo1075/u241292/data/COAST/Lantuit2012/ACD_database'):
+    '''
+    Calculates the centroids, or centers of mass, of each coastal segment.
+    Returns arrays of longitudes and latitudes. 
+    '''
+    import numpy as np
+    import shapefile
+    import pygeoif as pg
+    
+    r = shapefile.Reader(file)
+    
+    g=[]
+    for s in r.shapes():
+        g.append(pg.geometry.as_shape(s)) 
+
+    s=np.zeros(len(g))
+    cxx=np.zeros(len(g))
+    cyy=np.zeros(len(g))
+    for i in range(len(g)):
+        m = pg.MultiPolygon(g[i]);
+        n=m.wkt;
+        o=n.replace("MULTIPOLYGON(((","")
+        p=o.replace(")))","")
+        p2=p.replace("))","")
+        p3=p2.replace("((","")
+        p4=p3.replace(")","")
+        p5=p4.replace("(","")
+        q=p5.replace(", ",",")
+        r=q.replace(" ",",")
+        npoints=(r.count(",")+1)/2
+        #print(npoints)
+        s[i]=npoints
+        t=r.split(",")
+
+        u=np.zeros(len(t))
+        for ii in range(len(t)):
+            u[ii]=float(t[ii])
+
+        x=u[np.arange(0,len(u),2)]
+        y=u[np.arange(1,len(u)+1,2)]
+
+        cxx[i]=np.mean(x)
+        cyy[i]=np.mean(y)
+    return cxx, cyy
+    
+def ACD_floatvars(file='/work/uo1075/u241292/data/COAST/Lantuit2012/ACD_database', returnNames=True):
+    '''
+    Returns the names and data for the float-type variables in the ACD.
+    '''
+    import shapefile
+    import numpy as np
+    sf = shapefile.Reader(file)
+    nsegments=len(sf.shapeRecords())
+    fields = sf.fields[1:] 
+    nfields=len(fields)
+    field_names = [field[0] for field in fields]
+    field_types = [field[1] for field in fields]
+
+    # Get Float Record Names
+    float_record_names=[]
+    for f in range(len(fields)):
+        if field_types[f]=='F':
+            float_record_names.append(field_names[f])  
+            
+    # Get Float Record Data
+    for t in range(len(float_record_names)):
+        print('%d: %s' %(t,float_record_names[t]))
+        temp=np.zeros((len(sf.shapeRecords())))
+        i=0
+        for r in sf.shapeRecords():
+            atr = dict(zip(field_names, r.record))
+            temp[i]=atr['rate']
+            i=i+1
+        if t==0:
+            float_record_data=temp.copy()
+        else:
+            float_record_data=np.vstack([float_record_data,temp])
+    print(float_record_data.shape)
+    if returnNames:
+        return float_record_data, float_record_names
+    else:
+        return float_record_data
+    
