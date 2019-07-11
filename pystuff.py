@@ -1310,7 +1310,7 @@ def twinboth(ax):
     newax.xaxis.tick_top()
     return newax
 
-def circlemap():
+def circlemap(ax):
     '''
     This function returns the circle boudary for Arctic maps made with Cartopy.
     USAGE:
@@ -1318,10 +1318,8 @@ def circlemap():
         import cartopy.crs as ccrs
         fig = plt.figure(figsize=(8, 8))
         ax = fig.add_subplot(111,projection=ccrs.NorthPolarStereo())
-        ax.set_extent([-180, 180, 63, 90], crs=ccrs.PlateCarree())
+        ps.circlemap(ax)
         ax.coastlines()
-        circle=ps.circlemap()
-        ax.set_boundary(circle, transform=ax.transAxes)
         plt.show()
     '''
     import numpy as np
@@ -1330,8 +1328,7 @@ def circlemap():
     center, radius = [0.5, 0.5], 0.5
     verts = np.vstack([np.sin(theta), np.cos(theta)]).T
     circle = mpath.Path(verts * radius + center)
-    return circle
-
+    ax.set_boundary(circle, transform=ax.transAxes)
 
 ###################### ACD Utilities #########################
 
@@ -1412,7 +1409,7 @@ def ACD_floatvars(file='/work/uo1075/u241292/data/COAST/Lantuit2012/ACD_database
         i=0
         for r in sf.shapeRecords():
             atr = dict(zip(field_names, r.record))
-            temp[i]=atr['rate']
+            temp[i]=atr[float_record_names[t]]
             i=i+1
         if t==0:
             float_record_data=temp.copy()
@@ -1423,4 +1420,19 @@ def ACD_floatvars(file='/work/uo1075/u241292/data/COAST/Lantuit2012/ACD_database
         return float_record_data, float_record_names
     else:
         return float_record_data
-    
+   
+def ACD_segments():
+    from cartopy.io.shapereader import Reader
+    from cartopy.feature import ShapelyFeature
+    import cartopy.crs as ccrs
+    ACD_file='/work/uo1075/u241292/data/COAST/Lantuit2012/ACD_database'
+    shapes = ShapelyFeature(Reader(ACD_file).geometries(),ccrs.PlateCarree())
+    return shapes
+
+
+
+def draw_text(ax, text='This is a piece of text.',size=10,frameon=True,loc='lower left'):
+    from matplotlib.offsetbox import AnchoredText
+    at = AnchoredText(text, loc=loc, prop=dict(size=size), frameon=frameon)
+    at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+    ax.add_artist(at) 
