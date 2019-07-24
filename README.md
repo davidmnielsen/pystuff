@@ -284,6 +284,16 @@ div = ps.hdivg(u,v,lat,lon,regulargrid=True)
 # Vorticity (vertical component of relative vorticity)
 vor = ps.hcurl(u,v,lat,lon,regulargrid=True)
 
+# Save NetCDF (with Xarray)
+newds = xr.Dataset(data_vars={'lat'  : ("lat", lat),
+                              'lon'  : ("lon", lon,
+                              'time' : ("time", time),
+                              'slp' : (["time","lat","lon"], slp)})
+newds['lon'].attrs  = {'standard_name' :'longitude','long_name':'longitude','units': 'degrees_east'   ,'axis': 'X'}
+newds['lat'].attrs  = {'standard_name' :'latitude' ,'long_name':'latitude' ,'units': 'degrees_north'  ,'axis': 'Y'}
+newds['time'].attrs = {'standard_name' :'time'     ,'long_name':'time'     ,'units': 'year of January','axis': 'T'}
+newds['slp'].attrs  = {'standard_name' : 'slp', 'shortname': 'slp', 'units': 'hPa'}
+newds.to_netcdf('slp.nc') 
 
 
 ```
