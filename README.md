@@ -284,7 +284,7 @@ div = ps.hdivg(u,v,lat,lon,regulargrid=True)
 # Vorticity (vertical component of relative vorticity)
 vor = ps.hcurl(u,v,lat,lon,regulargrid=True)
 
-# Save NetCDF (with Xarray)
+# Save regular grid NetCDF (with Xarray)
 newds = xr.Dataset(data_vars={'lat'  : ("lat", lat),
                               'lon'  : ("lon", lon,
                               'time' : ("time", time),
@@ -295,5 +295,18 @@ newds['time'].attrs = {'standard_name' :'time'     ,'long_name':'time'     ,'uni
 newds['slp'].attrs  = {'standard_name' : 'slp', 'shortname': 'slp', 'units': 'hPa'}
 newds.to_netcdf('slp.nc') 
 
-
+# Save curvilinear grid (e.g. MPIOM) NetCDF
+newds = xr.Dataset(data_vars={'lat' : (["y","x"], lat),
+                              'lon' : (["y","x"], lon),
+                              'time' : ("time", time,
+                              'dist': (["time","y","x"], dist)})
+newds['lon'].attrs = {'standard_name':'lon', 'long_name':'longitude','units':'degrees_east',
+                       '_CoordinateAxisType':'Lon'}
+newds['lat'].attrs = {'standard_name':'lat', 'long_name':'latitude' ,'units':'degrees_north',
+                       '_CoordinateAxisType':'Lat'}
+newds['time'].attrs = {'standard_name':'time','long_name':'time','units':'hours since 0-01-01 22:40:00',
+                       'calendar':'365_day' ,'axis':'T'}
+newds['dist'].attrs = {'standard_name':'dist','long_name':'distances from segment', 'units':'degrees',
+                       'coordinates':'lon lat'}
+newds.to_netcdf('distances_MPIOM_LR.nc') 
 ```
