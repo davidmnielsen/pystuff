@@ -241,4 +241,49 @@ f.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/ensemeble.png')
 ```
 ![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/ensemeble.png "ensemeble.png")
 
+### Miscelaneous
 
+```python
+# Annual means of monthly values
+y=ps.annualmean(x)
+
+# Autocorrelation of lag 1
+r=ps.rho(x)
+
+# Autocorrelation of lag n
+r=ps.rhoAlt(x,dt=n)
+
+# Rednoise time series
+red=ps.rednoise(length, lag-1 correlation, nsim)
+
+# Value of percentile
+x95=getPercentile(x,pctl=0.95)
+
+# Multiple Linear Regression (Uncertainties based on t-test)
+X = [x1, x2, ... xn]
+fitted, lo, up, r2, r2adj, [coefs] = ps.mlr(X, y, stds=2, returnCoefs=False, printSummary=False)
+
+# Multiple Linear Regression (Uncertainties baed on Bootstrap)
+fitted_0, up, lo, r2adj_0, r2adj_un, [r2_0, r2_unc, coefs_0, coefs] = ps.bootsmlr(X, y, n=1000, conflev=0.95, positions='new', uncertain='Betas', details=False, printSummary=False)
+
+# Predict MLR, using coefs from the two above
+pred, lo, up = ps.mlr_predict(X,coefs,stds=2)
+
+# Residuals frmo MLR
+res = ps.mlr_res(X, y)
+
+# Histogram
+binlims, x_count = ps.ddhist(x,vmin,vmax,binsize, zeronan=True, density=False)
+
+# Order (sort ascending) x and y based on values of x
+xo, yo = ps.order(x,y)
+
+# Horizontal divergence
+div = ps.hdivg(u,v,lat,lon,regulargrid=True)
+
+# Vorticity (vertical component of relative vorticity)
+vor = ps.hcurl(u,v,lat,lon,regulargrid=True)
+
+
+
+```

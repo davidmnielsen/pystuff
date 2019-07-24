@@ -1435,4 +1435,75 @@ def draw_text(ax, text='This is a piece of text.',size=10,frameon=True,loc='lowe
     from matplotlib.offsetbox import AnchoredText
     at = AnchoredText(text, loc=loc, prop=dict(size=size), frameon=frameon)
     at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
-    ax.add_artist(at) 
+    ax.add_artist(at)
+
+
+################# Circle Averages
+def circleavg_nsidc(plat,plon,r,xgrid,ygrid,lat,lon,data,returnMap=False, returnOnes=False):
+    """
+    This function returns time series of provided NSIDC data averaged over a circle 
+    of radius r around the center located at plat,plon.
+    r must me given in meters. 
+    nsidc data dimensions can be [ygrid,xgrid] or [time,ygrid,xgrid]
+    """
+    import numpy as np
+    
+    # Number of dimensions (is it a time slice, or time series?)
+    dims=np.size(data.shape)
+    
+    # Find the gridcell closest to the center (plat,plon)
+    latdifs=abs(lat-plat)
+    londifs=abs(lon-plon)
+    sumdifs=latdifs+londifs
+    mycoords=np.where(sumdifs==np.min(sumdifs))[:]
+    mycoords0=mycoords[0][0]
+    mycoords1=mycoords[1][0]-1
+
+    # Define rectangle of size 2rx2r around the center
+    minx=np.where(xgrid==(xgrid[mycoords0]-r))[0][0]
+    maxx=np.where(xgrid==(xgrid[mycoords0]+r))[0][0]
+    miny=np.where(ygrid==(ygrid[mycoords1]-r))[0][0]
+    maxy=np.where(ygrid==(ygrid[mycoords1]+r))[0][0]
+    rangex=np.arange(minx,maxx)
+    rangey=np.arange(maxy,miny)
+    
+    # Prepare output
+    mycircle=data.copy()
+    mycircle.fill(np.nan)
+    if returnOnes:
+        myones=data.copy()
+        myones.fill(np.nan)
+
+    # Check distance of each grid cell from center
+    for x in rangex:
+        for y in rangey:
+            dist_to_center=np.sqrt(abs(xgrid[mycoords0]-xgrid[x])**2 + abs(ygrid[mycoords1]-ygrid[y])**2)
+            if dist_to_center<r:
+                if dims==3:
+                    mycircle[:,x,y]=data[:,x,y]
+                    if returnOnes:
+                        myones[:,x,y]=1
+                elif dims==2:
+                    mycircle[x,y]=data[x,y]
+                    if returnOnes:
+                        myones[x,y]=1
+                    
+    # Make time series
+    if dims==3:
+        mycircleavg=np.nanmean(np.nanmean(mycircle,axis=1),axis=1)
+    if dims==2:
+        mycircleavg=np.nanmean(np.nanmean(mycircle,axis=1),axis=0)
+        
+    # Return
+    if returnMap:
+        if returnOnes:
+            return mycircleavg, mycircle, myones
+        else:
+            return mycircleavg, mycircle
+    else:
+        if returnOnes:
+            return mycircleavg, myones
+        else:
+            return mycircleavg
+
+ 
