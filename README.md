@@ -1,21 +1,24 @@
 ## pystuff
 
-Copy-and-paste references for time-series analysis with Python.
+Some useful stuff for data analysis using python.
 
+### Installation
 
-### Usual Imports
+```python
+pip install pystuff
+```
+
+### Import
+```python
+import pystuff as ps
+```
+
+### Other usual imports
 ```python
 import numpy as np
 import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
-```
-
-### Import this module from your path
-```python
-import sys
-sys.path.append('/home/zmaw/u241292/scripts/python/pystuff')
-import pystuff.pystuff as ps
 ```
 
 ### Read your data

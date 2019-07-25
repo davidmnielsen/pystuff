@@ -1,11 +1,23 @@
-from setuptools import setup
+import setuptools
 
-setup(name='pystuff',
-      version='0.1',
-      description='Easy copy-and-paste python stuff to ease your life',
-      url='https://github.com/davidmnielsen/pystuff',
-      author='David Nielsen',
-      author_email='davidnielsen@id.uff.br',
-      license='MIT',
-      packages=['pystuff'],
-      zip_safe=False)
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="pystuff",
+    version="0.1",
+    author="David Nielsen",
+    author_email="davidnielsen@id.uff.br",
+    description="Useful and simple functions for data analysis in python.",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/davidmnielsen/pystuff",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    install_requires=['numpy','matplotlib','xarray','pandas','scipy']
+
+)

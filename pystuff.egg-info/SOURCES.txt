@@ -1,0 +1,7 @@
+README.md
+setup.py
+pystuff/__init__.py
+pystuff.egg-info/PKG-INFO
+pystuff.egg-info/SOURCES.txt
+pystuff.egg-info/dependency_links.txt
+pystuff.egg-info/top_level.txt
