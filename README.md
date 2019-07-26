@@ -1,19 +1,29 @@
-## pystuff
+# pystuff
 
-Some useful stuff for data analysis using python.
+[![PyPI version](https://badge.fury.io/py/pystuff.svg)](https://badge.fury.io/py/pystuff)  [![GitHub version](https://badge.fury.io/gh/davidmnielsen%2Fpystuff.svg)](https://badge.fury.io/gh/davidmnielsen%2Fpystuff)  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/davidmnielsen/pystuff/issues)
 
-### Installation
+Some useful functions for data analysis in python.
 
-```python
+- [Introduction](#introduction)
+- [Handling time series](#handling-time-series) 
+- [Periodogram](#periodogram)
+- [Principal Component Analysis (PCA)](#principal-component-analysis)
+- [Ensemble Subsampling](#ensemble-subsampling)
+- [Statistics](#statistics)
+
+## Introduction
+
+#### Installation
+```
 pip install pystuff
 ```
 
-### Import
+#### Import pystuff
 ```python
 import pystuff as ps
 ```
 
-### Other usual imports
+#### Import auxiliary packages
 ```python
 import numpy as np
 import xarray as xr
@@ -21,8 +31,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 ```
 
-### Read your data
-
+#### Read example data
 ```python
 # ERA-Interim SST anomalies, weighted by sqrt(cos(lat))
 pathfile='/work/uo1075/u241292/data/ERAI/atmo/monavg_sst_w2_anom.nc'
@@ -33,7 +42,7 @@ myvar=ds['sst'].values
 time=pd.to_datetime(ds['time'].values)
 ```
 
-### Some time-series handling
+## Handling time series
 
 ```python
 # Area Average
@@ -86,9 +95,9 @@ plt.show()
 fig.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/timeseries.png')		
 ```
 
-![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/timeseries.png "timeseries.png")
+![alt text](https://raw.githubusercontent.com/davidmnielsen/pystuff/master/figs/timeseries.png "timeseries.png")
 
-### Periodogram
+## Periodogram
 
 ```python
 fig = plt.figure(figsize=(5,4.5))
@@ -124,9 +133,9 @@ plt.show()
 fig.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/periodogram.png')
 ```
 
-![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/periodogram.png "periodogram.png")
+![alt text](https://raw.githubusercontent.com/davidmnielsen/pystuff/master/figs/periodogram.png "periodogram.png")
 
-### PCA
+## Principal Component Analysis (PCA)
 
 ```python
 # Get data from any 3 grid cells
@@ -191,11 +200,11 @@ ax2.arrow(0,0,loadings[2,0],loadings[2,1],width=0.005,color='b',lw=2)
 plt.tight_layout()
 plt.show()
 
-f.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/pca.png')
+f.savefig('figs/pca.png')
 ```
-![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/pca.png "pca.png")
+![alt text](https://raw.githubusercontent.com/davidmnielsen/pystuff/master/figs/pca.png "pca.png")
 
-### Fake Ensemble Subsampling
+## Ensemble Subsampling
 
 ```python
 # Create a fake ensemble of nsim members of red noise (preserving the lag-dt) correlation
@@ -240,11 +249,11 @@ ps.leg(loc='upper right', frameon=True)
 
 plt.tight_layout()
 plt.show()
-f.savefig('/home/zmaw/u241292/scripts/python/pystuff/figs/ensemeble.png')
+f.savefig('figs/ensemeble.png')
 ```
-![alt text](https://github.com/davidmnielsen/pystuff/blob/master/figs/ensemeble.png "ensemeble.png")
+![alt text](https://raw.githubusercontent.com/davidmnielsen/pystuff/master/figs/ensemeble.png "ensemeble.png")
 
-### Miscelaneous
+## Statistics
 
 ```python
 # Annual means of monthly values
@@ -287,7 +296,7 @@ div = ps.hdivg(u,v,lat,lon,regulargrid=True)
 # Vorticity (vertical component of relative vorticity)
 vor = ps.hcurl(u,v,lat,lon,regulargrid=True)
 ```
-### Non-pystuff, though nice to copy-and-paste too
+## Non-pystuff, though nice to copy-and-paste too
 
 ```python
 # Save regular grid NetCDF (with Xarray)
@@ -312,3 +321,4 @@ newds['time'].attrs = {'standard_name':'time','long_name':'time','units':'hours 
 newds['dist'].attrs = {'standard_name':'dist','long_name':'distances from segment', 'units':'degrees','coordinates':'lon lat'}
 newds.to_netcdf('distances_MPIOM_LR.nc') 
 ```
+
