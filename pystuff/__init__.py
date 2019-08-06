@@ -1506,4 +1506,22 @@ def circleavg_nsidc(plat,plon,r,xgrid,ygrid,lat,lon,data,returnMap=False, return
         else:
             return mycircleavg
 
+def deg2m(r, clat, clon):
+    '''
+    Converts from degree to meters, at a certain latitude.
+    '''
+    import pyproj
+    geod84 = pyproj.Geod(ellps='WGS84')
+    _, _, dist_m = geod84.inv(clon, clat,  clon+r, clat)
+    return dist_m
+
+def m2deg(r, clat, clon):
+    '''
+    Converts from meters to degree (departing from) a certain latitude, towards North.
+    '''
+    import pyproj
+    geod84 = pyproj.Geod(ellps='WGS84')
+    _, _, out_z = geod84.fwd(clon, clat, 90, r, radians=False)
+    return 90-abs(out_z)
+
  
