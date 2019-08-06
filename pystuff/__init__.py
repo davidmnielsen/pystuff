@@ -1524,4 +1524,7 @@ def m2deg(r, clat, clon):
     _, _, out_z = geod84.fwd(clon, clat, 90, r, radians=False)
     return 90-abs(out_z)
 
+def isleap(year):
+    import calendar
+    return calendar.isleap(year)
  
