@@ -293,7 +293,7 @@ def getbox(coords,lat,lon,data,returnmap=False):
 
 ########## 5) Running mean
 
-def runmean(x,window=3,fillaround=False,weights=False):
+def runmean(x,window=3,fillaround=False,weights=False,nanignore=False):
     
     '''
     Calculates a running mean of a given series x, using a window
@@ -345,23 +345,41 @@ def runmean(x,window=3,fillaround=False,weights=False):
                     if type(weights) is not bool:                        
                         if t<len(weights):
                             # t is on the left edge
-                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                            if nanignore:
+                                x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow]*\
                                            weights[-2*halfwindow-1:-1],
-                                           axis=0)/np.sum(weights[-2*halfwindow-1:-1])
+                                           axis=0)/np.nansum(weights[-2*halfwindow-1:-1])
+                            else:
+                                x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[-2*halfwindow-1:-1],
+                                               axis=0)/np.sum(weights[-2*halfwindow-1:-1])
                         elif t>=(len(x)-len(weights)):
                             # t is on the right edge
-                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
-                                           weights[:2*halfwindow],
-                                           axis=0)/np.sum(weights[:2*halfwindow])
+                            if nanignore:
+                                x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[:2*halfwindow],
+                                               axis=0)/np.nansum(weights[:2*halfwindow])
+                            else:
+                                x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[:2*halfwindow],
+                                               axis=0)/np.sum(weights[:2*halfwindow])
                         else:
                             # t is not on the edges
                             midw=(len(weights)/2)+1
-                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
-                                           weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
-                                           np.sum(weights[int(midw-halfwindow):int(midw+halfwindow)])                       
+                            if nanignore:
+                                x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
+                                               np.nansum(weights[int(midw-halfwindow):int(midw+halfwindow)])
+                            else:
+                                x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
+                                               np.sum(weights[int(midw-halfwindow):int(midw+halfwindow)])                       
                     else:
                         # t not on the edges without weight
-                        x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                        if nanignore:
+                            x_rm[t]=np.nanmean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                        else:
+                            x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
                 else:
                     if halfwindow==1:
                         x_rm[t]=x[t]
@@ -374,13 +392,18 @@ def runmean(x,window=3,fillaround=False,weights=False):
             #print(halfwindow)
             if t>=halfwindow and t<(len(x)-halfwindow):
                 if type(weights) is bool:
-                    x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                    if nanignore:
+                        x_rm[t]=np.nanmean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                    else:
+                        x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
                 else:
-                    x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.sum(weights)
+                    if nanignore:
+                        x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.nansum(weights)
+                    else:
+                        x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.sum(weights)
             else:
                 x_rm[t]=np.nan                
     return x_rm
-
 
 #################### 6) ddreg
     
@@ -1537,6 +1560,11 @@ def scale_bar(ax, length=None, location=(0.7, 0.05), linewidth=3, color='y',font
     linewidth is the thickness of the scalebar.
     https://stackoverflow.com/questions/32333870/how-can-i-show-a-km-ruler-on-a-cartopy-matplotlib-plot
     """
+    
+    import cartopy.crs as ccrs
+    import numpy as np
+    import matplotlib.pyplot as plt
+
     #Get the limits of the axis in lat long
     llx0, llx1, lly0, lly1 = ax.get_extent(ccrs.PlateCarree())
     #Make tmc horizontally centred on the middle of the map,
