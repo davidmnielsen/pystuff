@@ -296,29 +296,40 @@ div = ps.hdivg(u,v,lat,lon,regulargrid=True)
 # Vorticity (vertical component of relative vorticity)
 vor = ps.hcurl(u,v,lat,lon,regulargrid=True)
 ```
-## Non-pystuff, though nice to copy-and-paste too
+## Miscellaneous
 
 ```python
-# Save regular grid NetCDF (with Xarray)
-newds = xr.Dataset(data_vars={'lat'  : ("lat", lat),
-                              'lon'  : ("lon", lon,
-                              'time' : ("time", time),
-                              'slp' : (["time","lat","lon"], slp)})
-newds['lon'].attrs  = {'standard_name' :'longitude','long_name':'longitude','units': 'degrees_east'   ,'axis': 'X'}
-newds['lat'].attrs  = {'standard_name' :'latitude' ,'long_name':'latitude' ,'units': 'degrees_north'  ,'axis': 'Y'}
-newds['time'].attrs = {'standard_name' :'time'     ,'long_name':'time'     ,'units': 'year of January','axis': 'T'}
-newds['slp'].attrs  = {'standard_name' : 'slp', 'shortname': 'slp', 'units': 'hPa'}
-newds.to_netcdf('slp.nc') 
+# Saving CDO- and NCView-compatible NetCDF
 
-# Save curvilinear grid (e.g. MPIOM) NetCDF
-newds = xr.Dataset(data_vars={'lat' : (["y","x"], lat),
-                              'lon' : (["y","x"], lon),
-                              'time' : ("time", time,
-                              'dist': (["time","y","x"], dist)})
-newds['lon'].attrs = {'standard_name':'lon', 'long_name':'longitude','units':'degrees_east', '_CoordinateAxisType':'Lon'}
-newds['lat'].attrs = {'standard_name':'lat', 'long_name':'latitude' ,'units':'degrees_north','_CoordinateAxisType':'Lat'}
-newds['time'].attrs = {'standard_name':'time','long_name':'time','units':'hours since 0-01-01 22:40:00','calendar':'365_day' ,'axis':'T'}
-newds['dist'].attrs = {'standard_name':'dist','long_name':'distances from segment', 'units':'degrees','coordinates':'lon lat'}
-newds.to_netcdf('distances_MPIOM_LR.nc') 
+# import pandas as pd
+# mytime = pd.date_range('1979-01-01', periods=numYears, freq='1A')
+
+newds = xr.Dataset(data_vars={'lat': (["lat"], lat),
+                              'lon': (["lon"], lon),
+                              'time': (["time"], np.arange(firstYear,lastYear+1)),
+                              'clim' : (["lat","lon"], clim),
+                              'trend': (["lat","lon"], trend),
+                              'std'  : (["lat","lon"], std),
+                              'stdDt': (["lat","lon"], stdDt),
+                              'prop' : (["lat","lon"], prop),
+                              'hs'   : (["time","lat","lon"], tempArray)})
+
+newds['lat'].attrs  = {'standard_name':'lat','units':'degrees_north', '_CoordinateAxisType':'Lat'}
+newds['lon'].attrs  = {'standard_name':'lon','units':'degrees_east',  '_CoordinateAxisType':'Lon'}
+newds['time'].attrs = {'standard_name':'time', 'units':'years since 1979-01-01 00:00:00',
+                       'calendar': 'proleptic_gregorian', '_CoordinateAxisType':'Time'}
+
+newds['hs'].attrs    = {'standard_name':'hs',   'units':'m'}
+newds['clim'].attrs  = {'standard_name':'clim', 'units':'m'}
+newds['trend'].attrs = {'standard_name':'trend','units':'m/year'}
+newds['std'].attrs   = {'standard_name':'std',  'units':'m'}
+newds['stdDt'].attrs = {'standard_name':'stdDt','units':'m'}
+newds['prop'].attrs  = {'standard_name':'prop', 'units':'%'}
+
+newds.attrs = {'script' :'/home/u241292/scripts/python/acdtools/acdtools/Hs_Clim.ipynb',
+               'content':'Statistics and Time Series of Significant Wave Height (Hs) from ERA5 remapcon2 WAM'}
+newds.to_netcdf('/work/uo1075/u241292/outputs/CEModel/era5-rampcon2-wam_StatsTs_1979-2000_Hs.nc')
+#                 unlimited_dims = 'time',
+#                 encoding = {'time': {'dtype': 'datetime64[ns]'}})
 ```
 
