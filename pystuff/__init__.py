@@ -1598,4 +1598,13 @@ def scale_bar(ax, length=None, location=(0.7, 0.05), linewidth=3, color='y',font
     ax.text(sbx, sby, str(length) + ' km', transform=tmc,
             horizontalalignment='center', verticalalignment='bottom', color=color, fontsize=fontsize)
 
+def normBetween(x, objMin=0, objMax=365):
+    import numpy as np
+    xMin = np.nanmin(x)
+    xMax = np.nanmax(x)
+    out = np.zeros(np.shape(x))
+    out.fill(np.nan)
+    for i in range(len(x)):
+        out[i] = ((x[i]-xMin)*(objMax-objMin))/(xMax-xMin) + objMin
+    return out
  
