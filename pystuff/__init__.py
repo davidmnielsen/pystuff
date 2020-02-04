@@ -1607,4 +1607,13 @@ def normBetween(x, objMin=0, objMax=365):
     for i in range(len(x)):
         out[i] = ((x[i]-xMin)*(objMax-objMin))/(xMax-xMin) + objMin
     return out
- 
+
+def rmse(x1,x2):
+    import numpy as np
+    if np.shape(x1)!=np.shape(x2):
+        print('RMSE Error: x1 and x2 have different shapes.')
+    else:
+        sums=np.zeros(np.shape(x1))
+        for i in range(len(x1)):
+            sums[i]=(x1[i]-x1[i])**2
+    return np.sqrt(np.nansum(sums)) 
