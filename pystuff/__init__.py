@@ -1616,4 +1616,36 @@ def rmse(x1,x2):
         sums=np.zeros(np.shape(x1))
         for i in range(len(x1)):
             sums[i]=(x1[i]-x1[i])**2
-    return np.sqrt(np.nansum(sums)) 
+    return np.sqrt(np.nansum(sums))
+
+def bootSeries(x, y, n=1000):
+    '''
+    Takes as input two time series, x and y
+    with x.shape = y.shape = (length, )
+    and returns n pairs of time series with same length
+    sampled with replacement from the input.
+    '''
+    import numpy as np
+    length = len(x)
+    if length != len(y):
+        print('Error: x and y must have the same dimensions.')
+        return
+    else:
+        
+        # Generate random positions
+        import random
+        rand=np.zeros((length,n))
+        for nn in range(n):
+            for i in range(length):
+                rand[i,nn]=random.randint(0,length-1) 
+        
+        # Shuffle time series (actually, sample with replacement)             
+        schufx = np.zeros((length,n))
+        schufy = np.zeros((length,n))
+        for nn in range(n):
+            for ii in range(len(x)):
+                schufx[ii,nn] = x[int(rand[ii,nn])]
+                schufy[ii,nn] = y[int(rand[ii,nn])]
+        return schufx, schufy 
+
+
