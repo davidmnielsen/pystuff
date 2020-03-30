@@ -187,6 +187,11 @@ def ddpca(x):
 ##### 3) Remove Linear Trend #####
 
 def ddetrend(var,xvar=321943587416321,returnTrend=False,center=False):
+    
+    '''
+    THIS IS WRONG!!!!!!
+    USE `ddreg` INSTEAD
+    '''
 
     import numpy as np
     from scipy import stats
@@ -407,14 +412,16 @@ def runmean(x,window=3,fillaround=False,weights=False,nanignore=False):
 
 #################### 6) ddreg
     
-def ddreg(x,y,returnStats=False):
+def ddreg(x,y,returnStats=False, returnCoefs=False):
     import numpy as np
     from scipy import stats
     slope, inter, r, p, se = stats.linregress(x,y)
     trend=np.array(x)*slope+inter
     if returnStats:
         return slope, r, p    
-    else:    
+    elif returnCoefs:
+        return slope, inter, trend
+    else:
         return trend
 
 ################## 7) Standardize
