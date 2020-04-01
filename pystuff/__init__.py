@@ -549,20 +549,23 @@ def rhoAlt(datax,dt=1):
     r=np.corrcoef(datax[0:-dt-1],datax[dt:-1])
     return r[0,1]
 
-def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
-    # Creates nsim time series of rednoise of length=lenx, with lag-1 autocorrelation rho.
+def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False, 
+             mean=0, std=1, lo=-1, hi=1):
+    '''
+    Creates nsim time series of rednoise of length=lenx, with lag-1 autocorrelation rho.
+    For normally-distributed series, user can provide mean and std.
+    For uniformely-distributed series, user can provide low and high bounds.
+    '''
     import numpy as np
     srho=(1-(rho**2))**(0.5)
     red=np.zeros((lenx,nsim))
     white=np.zeros((lenx,nsim))
     for j in range(nsim):
-        for i in range(lenx-1):
+        for i in range(lenx):
             if dist=='normal':
-                #white[i+1,j]=white[i,j]+np.random.normal() # mu=0, std=1
-                white[i+1,j]=np.random.normal() # mu=0, std=1
+                white[i,j]=np.random.normal(loc=mean, scale=std) 
             elif dist=='uniform':
-                #white[i+1,j]=white[i,j]+np.random.uniform(-1,1)
-                white[i+1,j]=np.random.uniform(-1,1)
+                white[i,j]=np.random.uniform(low=lo, high=hi)
     for j in range(nsim):
         for i in range(lenx):
             if i==0:
@@ -573,6 +576,7 @@ def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
         return red, white
     else:
         return red
+
 
 # def theored(dt,rho,meanP,f):
 #     import numpy as np
