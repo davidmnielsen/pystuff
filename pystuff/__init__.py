@@ -1659,4 +1659,64 @@ def bootSeries(x, y, n=1000):
                 schufy[ii,nn] = y[int(rand[ii,nn])]
         return schufx, schufy 
 
-
+def extendSeries(x, xTime, longTime, allowNegatives=False, returnLongTrend=False):
+    '''
+    Extends time series x, which comprehends xTime, back in time to cover longTime.
+    Generated time series respects the lag-1 correlation (red noise), mean, std and trend of the
+    given time series x. 
+    x must not have NaN's.
+    Input:
+        xTime = np.arange(1980,2020)
+        longTime = np.arange(1950,2020)
+        x = any time series with length = len(xTime)
+    Output:
+        xLong = a time series identical to x during xTime, and randomly generated
+        mantaining its same statistical characteristics in the remaining years.
+    '''
+    import numpy as np
+    
+    redTime = np.arange(longTime[0],xTime[0])
+    
+    lenTimeX = len(xTime)
+    lenLongTime = len(longTime)
+    lenRedTime = len(redTime)
+    
+    xTrend  = np.zeros((lenLongTime)); xTrend.fill(np.nan)
+    xDt     = np.zeros((lenLongTime)); xDt.fill(np.nan)
+    #xRed    = np.zeros((lenRedTime)); xRed.fill(np.nan)
+    xLong   = np.zeros((lenLongTime)); xLong.fill(np.nan)
+    
+    # Get the trend of x and extend it back during longTime
+    a, b, t = ddreg(xTime, x, returnCoefs=True)
+    xTrend = a*longTime + b
+    if ~allowNegatives:
+        xTrend[xTrend<0]=0
+        
+    # Detrend the real time series 
+    start = lenLongTime-np.where(longTime==xTime[0])[0]
+    xDt[-int(start):] = x - xTrend[-int(start):]  + np.mean(x)
+    
+    # Create red noise time series with std of original detrended series
+    xRed = rednoise(lenRedTime, rho(xDt[~np.isnan(xDt)]), nsim=1,  mean=0,
+               std = np.std(xDt[~np.isnan(xDt)]))
+    
+    # Give it the correct mean
+    targetMean = np.mean(xDt[~np.isnan(xDt)])
+    redMean = np.mean(xRed)
+    if redMean>targetMean:
+        xRed = xRed - abs(redMean - targetMean)
+    elif redMean<targetMean:
+        xRed = xRed + abs(redMean - targetMean)
+        
+    # Put them together
+    fullDt = np.hstack((np.squeeze(xRed), xDt[~np.isnan(xDt)]))
+    fullWt = fullDt + xTrend
+    fullWt[xTrend==0] = fullWt[xTrend==0] - np.mean(fullWt[xTrend==0])
+    fullWt[xTrend>0]  = fullWt[xTrend>0]  - np.mean(fullDt[xTrend!=0])
+    if ~allowNegatives:
+        fullWt[fullWt<0] = 0
+    
+    if returnLongTrend:
+        return fullWt, xTrend
+    else:
+        return fullWt
