@@ -1629,18 +1629,15 @@ def rmse(x1,x2):
             sums[i]=(x1[i]-x1[i])**2
     return np.sqrt(np.nansum(sums))
 
-def bootSeries(x, y, n=1000):
+def bootSeries(x, y, n=1000, length=0):
     '''
-    Takes as input two time series, x and y
-    with x.shape = y.shape = (length, )
-    and returns n pairs of time series with same length
-    sampled with replacement from the input.
+    Takes as input two time series, x and y.
+    Generated time series of given length, sampled with replacement from x and y.
+    Default length is len(x), which should be equal to len(y).
     '''
     import numpy as np
-    length = len(x)
-    if length != len(y):
-        print('Error: x and y must have the same dimensions.')
-        return
+    if length == 0:
+        length = len(x)
     else:
         
         # Generate random positions
@@ -1648,13 +1645,13 @@ def bootSeries(x, y, n=1000):
         rand=np.zeros((length,n))
         for nn in range(n):
             for i in range(length):
-                rand[i,nn]=random.randint(0,length-1) 
+                rand[i,nn]=random.randint(0,len(x)-1) # must sample from entire length
         
         # Shuffle time series (actually, sample with replacement)             
         schufx = np.zeros((length,n))
         schufy = np.zeros((length,n))
         for nn in range(n):
-            for ii in range(len(x)):
+            for ii in range(length):
                 schufx[ii,nn] = x[int(rand[ii,nn])]
                 schufy[ii,nn] = y[int(rand[ii,nn])]
         return schufx, schufy 
@@ -1715,7 +1712,10 @@ def extendSeries(x, xTime, longTime, allowNegatives=False, returnLongTrend=False
     fullWt[xTrend>0]  = fullWt[xTrend>0]  - np.mean(fullDt[xTrend!=0])
     if ~allowNegatives:
         fullWt[fullWt<0] = 0
-    
+   
+    # Make sure the last bit to be identical (correct for minor differences)
+    fullWt[-int(start):] = x 
+     
     if returnLongTrend:
         return fullWt, xTrend
     else:
