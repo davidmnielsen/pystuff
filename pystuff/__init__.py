@@ -942,10 +942,11 @@ def order(x,y):
     for i in range(len(x)):
         mini = np.min(x)
         minipos = np.where(x==mini)[0]
+        if len(minipos)>1:
+            minipos = np.min(minipos)
         yout[i]=y[minipos]
         x[minipos]=10**10
     return yout
-
     
 ##################### Load Coastal Erosion Rates
 
