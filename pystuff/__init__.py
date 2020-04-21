@@ -1621,6 +1621,7 @@ def normBetween(x, objMin=0, objMax=365):
     return out
 
 def rmse(x,y):
+    emport numpy as np
     return np.sqrt(np.nansum((x-y)**2))
 
 def bootSeries(x, y, n=1000, length=0):
@@ -1714,3 +1715,11 @@ def extendSeries(x, xTime, longTime, allowNegatives=False, returnLongTrend=False
         return fullWt, xTrend
     else:
         return fullWt
+
+
+def removeAfromB(A, B):
+    import numpy as np
+    trend = ddreg(A, B)
+    return B -trend + np.mean(B)
+
+
