@@ -1621,7 +1621,7 @@ def normBetween(x, objMin=0, objMax=365):
     return out
 
 def rmse(x,y):
-    emport numpy as np
+    import numpy as np
     return np.sqrt(np.nansum((x-y)**2))
 
 def bootSeries(x, y, n=1000, length=0):
@@ -1721,5 +1721,22 @@ def removeAfromB(A, B):
     import numpy as np
     trend = ddreg(A, B)
     return B -trend + np.mean(B)
+
+def scoresFromPCA(X, eigenvecs, means=[0], stds=[0]):
+    '''
+    Returns the scores (PCA time series) for given data X and eigenvectors.
+    Means and Stds of X are optional, in case X is the same for PCA, 
+    but necessary if applying the transformation to other data.
+    '''
+    import numpy as np
+    if len(means)==1:
+        means = np.mean(X,axis=0)
+    if len(stds)==1:
+        stds = np.std(X,axis=0)
+    pcs = np.zeros((X.shape))
+    for p in range(X.shape[1]): # pc
+        for v in range(X.shape[1]): # var
+            pcs[:,p] = pcs[:,p] + ((X[:,v]-means[v])/stds[v])*eigenvecs[v,p]
+    return pcs
 
 
