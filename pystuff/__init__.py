@@ -888,6 +888,13 @@ def mlr_predict(X,coefs,stds=2):
     
     return pred, lo, up
 
+def loo_predict(X, coefs):
+    import numpy as np
+    nvars = np.shape(coefs)[0]-1
+    out = coefs[0,0] # the first coef is the intercept
+    for i in range(nvars):
+        out = out + X[i]*coefs[i+1,0]
+    return out
     
 def mlr_res(X,y):
     '''
@@ -1739,4 +1746,73 @@ def scoresFromPCA(X, eigenvecs, means=[0], stds=[0]):
             pcs[:,p] = pcs[:,p] + ((X[:,v]-means[v])/stds[v])*eigenvecs[v,p]
     return pcs
 
+def boots_r2(x, y, n=10000, pval=0.05, positions='new'):
 
+    """
+    Better version of bootscorr, for R**2.
+    mu, std, lo, hi = boots_r2(x, y, n=10000, pval=0.05, positions='new')
+    """
+
+    import numpy as np
+    length=np.shape(x)[0] # time (or length) must be in the first dimension of x
+    if length!=np.shape(y)[0]:
+        print('ERROR: X and Y must have the same length.')
+        print('Given dimensions were:')
+        print('np.shape(x)=%s' %str(np.shape(x)))
+        print('np.shape(y)=%s' %str(np.shape(y)))
+        return
+    else:
+        
+        # 1) Check given parameters
+        if type(positions)==str:
+            if positions=='new':
+                # Create random positions
+                import random
+                rand=np.zeros((length,n))
+                for nn in range(n):
+                    for i in range(length):
+                        rand[i,nn]=random.randint(0,length-1) 
+            else:
+                print('ERROR: Invalid position argument.')
+                print('Must be eiter "new" or a numpy-array with shape (len(x),n)')
+                return
+        else:
+            if len(x)!=np.shape(positions)[0]:
+                print('ERROR: X, Y and given positions[0] must have the same length.')
+                print('Given dimensions were:')
+                print('np.shape(x)=%s' %str(np.shape(x)))
+                print('np.shape(positions)[0]=%s' %str(np.shape(positions[0])))
+                return
+            elif n>np.shape(positions)[1]:
+                print('ERROR: n must be <= np.shape(positions)[1]')
+                print('Given dimensions were:')
+                print('np.shape(n)=%s' %str(np.shape(n)))
+                print('np.shape(positions)[1]=%s' %str(np.shape(positions[1])))
+                return
+            else:
+                given_n=np.shape(positions)[1]
+                rand=positions
+
+        # 2) Schufle data
+        schufx=np.zeros((length,n))
+        schufy=np.zeros((length,n))
+        for nn in range(n):
+            for ii in range(len(x)):
+                schufx[ii,nn]=x[int(rand[ii,nn])]
+                schufy[ii,nn]=y[int(rand[ii,nn])]
+
+        # 3) Calculate correlations
+        r0=np.corrcoef(x,y)[0,1]
+        corr=np.zeros(n)
+        for nn in range(n):
+            corr[nn]=np.corrcoef(schufx[:,nn],schufy[:,nn])[0,1]**2
+
+        # 4) Params
+        mu = np.mean(corr)
+        std = np.std(corr)
+        
+        # 5) Quantiles
+        lo = np.sort(corr)[round(len(corr)*pval)]
+        hi = np.sort(corr)[round(len(corr)*(1-pval))]
+       
+        return mu, std, lo, hi
