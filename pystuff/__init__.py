@@ -19,7 +19,7 @@ Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
 
-def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
+def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False, std=False):
 
     """
     IN:
@@ -130,7 +130,10 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
                 if rrinf>0 or rrsup<0:
                     minsig=tail*2
                     lev=(1-minsig)
-        
+       
+    if std:
+        return r0, np.std(corr)
+	 
     if details:
         return r0, lev, rinf, rsup, sig, rand
     else:
@@ -875,7 +878,7 @@ def mlr_predict(X,coefs,stds=2):
     lines=np.zeros((len(X),2**(nvars+1)))
     for i in range(2**(nvars+1)):
         if nvars==1:
-            lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+            lines[:,i] = np.squeeze(coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1]))
         else:
             linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
             angterm = 0
@@ -942,17 +945,18 @@ def ddhist(x,vmin,vmax,binsize, zeronan=True, density=False):
 
 ################## order
 
-def order(x,y):
+def order(base,target):
     import numpy as np
-    yout=np.zeros(np.shape(y))
-    xout=np.sort(x)
-    for i in range(len(x)):
-        mini = np.min(x)
-        minipos = np.where(x==mini)[0]
+    baseline=base.copy()
+    yout=np.zeros(np.shape(target))
+    xout=np.sort(baseline)
+    for i in range(len(baseline)):
+        mini = np.min(baseline)
+        minipos = np.where(baseline==mini)[0]
         if len(minipos)>1:
             minipos = np.min(minipos)
-        yout[i]=y[minipos]
-        x[minipos]=10**10
+        yout[i]=target[minipos]
+        baseline[minipos]=10**10
     return yout
     
 ##################### Load Coastal Erosion Rates
@@ -1891,3 +1895,13 @@ def boots_r2_sklearn(x, y, n=10000, pval=0.05, positions='new'):
         hi = np.sort(corr)[round(len(corr)*(1-pval))]
        
         return mu, std, lo, hi
+
+def varsMemory():
+    import sys
+    ipython_vars = ['In', 'Out', 'exit', 'quit', 'get_ipython', 'ipython_vars']
+    out = sorted([(x, sys.getsizeof(globals().get(x))) for x in dir() if not x.startswith('_') and x not in sys.modules and x not in ipython_vars], key=lambda x: x[1], reverse=True)
+    return out
+
+def reload(name):
+    import importlib
+    importlib.reload(name)
