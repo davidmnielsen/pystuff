@@ -945,20 +945,25 @@ def ddhist(x,vmin,vmax,binsize, zeronan=True, density=False):
 
 ################## order
 
-def order(base,target):
+def order(base,target, returnIndices=False):
     import numpy as np
     baseline=base.copy()
     yout=np.zeros(np.shape(target))
+    posi=np.zeros(np.shape(target))
     xout=np.sort(baseline)
     for i in range(len(baseline)):
         mini = np.min(baseline)
         minipos = np.where(baseline==mini)[0]
         if len(minipos)>1:
             minipos = np.min(minipos)
+        posi[i]=minipos
         yout[i]=target[minipos]
         baseline[minipos]=10**10
-    return yout
-    
+    if returnIndices:
+        return yout, posi
+    else:
+        return yout
+ 
 ##################### Load Coastal Erosion Rates
 
 def loaderos(i,th=0.8,standardize=True):
