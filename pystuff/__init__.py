@@ -720,7 +720,7 @@ def bestEns(ens,x,pctl=0.95):
     return np.transpose(bestens), np.nanmean(bestens,axis=0), count
     
 ################ MLR
-def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
+def mlr(X,y,stds=2,returnCoefs=False, printSummary=False, crossOrigin=False):
     '''
     This function calculates a Multiple Linear Regression (MLR) for any number of covariates (nvars)
     and the condidence intervals for given number of standar deviations (stds), 
@@ -741,7 +741,12 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
         nvars=np.shape(X)[1]
     
     # Fit model
-    xx     = sm.add_constant(X, prepend=True)
+    if crossOrigin:
+        xx = X.copy()
+        ncoefs = nvars
+    else:
+        xx = sm.add_constant(X, prepend=True)
+        ncoefs = nvars+1
     model  = smf.OLS(y,xx).fit()
     fitted = model._results.fittedvalues
     r2     = model._results.rsquared
@@ -750,30 +755,39 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
         print(model.summary())
 
     # Store coefs
-    coefs=np.zeros((nvars+1,2))
-    for i in range(nvars+1):
+    coefs=np.zeros((ncoefs,2))
+    for i in range(ncoefs):
         coefs[i,0]=model.params[i] 
         coefs[i,1]=model.bse[i]
        
     # Set up all possible combination of signs
-    signs = np.zeros((2**(nvars+1),nvars+1))
-    for j in range(nvars+1):
-        count=((2**(nvars+1))/2**(j+1))
+    signs = np.zeros((2**(ncoefs),ncoefs))
+    for j in range(ncoefs):
+        count=((2**(ncoefs))/2**(j+1))
         fir=np.zeros((int(count),)); fir.fill(1)
         sec=np.zeros((int(count),)); sec.fill(-1)
         signs[:,j]=npm.repmat(np.hstack([fir,sec]),1,2**(j)) 
     
     # Make all possible lines, combining the signs of uncertainties
-    lines=np.zeros((len(y),2**(nvars+1)))
-    for i in range(2**(nvars+1)):
+    lines=np.zeros((len(y),2**(ncoefs)))
+    for i in range(2**(ncoefs)): ############# THE FOLLOWING IS STILL INCORRECT
         if nvars==1:
-            lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+            if ~crossOrigin:
+                lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+            else:
+                lines[:,i] = X*(coefs[0,0]+signs[i,1]*stds*coefs[0,1])
         else:
-            linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
+            if ~crossOrigin:
+                linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
+                firstAngCoefPos = 1 
+            else:
+                linterm = 0
+                firstAngCoefPos = 0
             angterm = 0
-            for n in np.arange(1,nvars+1):
+            for n in np.arange(firstAngCoefPos,ncoefs):
                 angterm = angterm + X[:,n-1]*(coefs[n,0]+signs[i,n]*stds*coefs[n,1])
             lines[:,i] = linterm + angterm         
+    
     combs=np.stack(lines,axis=0)
     lo=np.min(combs, axis=1)
     up=np.max(combs, axis=1)
@@ -948,17 +962,18 @@ def ddhist(x,vmin,vmax,binsize, zeronan=True, density=False):
 def order(base,target, returnIndices=False):
     import numpy as np
     baseline=base.copy()
-    yout=np.zeros(np.shape(target))
-    posi=np.zeros(np.shape(target))
-    xout=np.sort(baseline)
+    posi=np.argsort(baseline)
+    yout=target[posi]
+    '''
     for i in range(len(baseline)):
         mini = np.min(baseline)
         minipos = np.where(baseline==mini)[0]
         if len(minipos)>1:
             minipos = np.min(minipos)
-        posi[i]=minipos
+        posi[i]=int(minipos)
         yout[i]=target[minipos]
         baseline[minipos]=10**10
+    '''
     if returnIndices:
         return yout, posi
     else:
@@ -1910,3 +1925,148 @@ def varsMemory():
 def reload(name):
     import importlib
     importlib.reload(name)
+
+def mad(x):
+    import numpy as np
+    return np.mean(abs(x-np.median(x)))
+
+
+def rss(fitted, obs):
+    '''
+    Residual Sum of Squares (RSS) between two functions.
+    rss = rss(y, x)
+    '''
+    import numpy as np
+    return np.sum((fitted-obs)**2)
+
+def AIC(fitted, obs, k):
+    '''
+    Akaike's Information Criterion (AIC) based on Residual Sum of Squares (RSS)
+    aic = AIC(fitted, obs, k)
+    k is the number of intependent variables, INCLUDING the intercept in this case.
+    '''
+    import numpy as np
+    n = len(obs)
+    return n*np.log(rss(fitted, obs)/n) + 2*k
+
+def mlr_sklearn(X,y,fit_intercept=True):
+    '''
+    fit, coefs, inter, r, aic = mlr_sklearn(X,y,fit_intercept=True)
+    Simple and *fast* MLR with sklearn.    
+    '''
+    import numpy as np
+    from sklearn.linear_model import LinearRegression
+    
+    # Take care of dimensions
+    if np.size(np.shape(X))==1:
+        nvars=1
+        #X = X.reshape(-1,1)
+        X = X[:,np.newaxis]
+    else:
+        nvars = X.shape[1]
+    # MLR fit and results
+    lr = LinearRegression(fit_intercept=fit_intercept).fit(X, y)
+    coefs = lr.coef_
+    inter = lr.intercept_
+    fit = lr.predict(X)
+    aic = AIC(fit, y, nvars)
+    if nvars>1:
+        r = np.corrcoef(fit,y)[0,1]
+    else:
+        lr = LinearRegression(fit_intercept=fit_intercept).fit(X/np.std(X), y/np.std(y))
+        r = lr.coef_[0]
+    
+    return fit, coefs, inter, r, aic
+
+def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True):
+    '''
+    coefs, inter, r, aic, fit, lo, hi = bootsmlr_sklearn(X, y, n=1000, fit_intercept=True)
+    Returns the bootstrap distributins of MLR statistics.
+    This runs relatively fast due to the simple implementation of sklearn.
+    As used in: /home/scripts/python/acdtools/acdtools/11_MLRCEM_ProcessBasedSpatialModel_Compare.ipynb
+    '''
+    from tqdm.auto import tqdm
+    import numpy as np
+    import numpy.matlib
+    import random
+    
+    # Check the number of covariates
+    if np.size(np.shape(X))==1:
+        nvars=1
+        length=np.shape(X)[0]
+    elif np.size(np.shape(X))>1:
+        nvars=np.shape(X)[1]
+        length=np.shape(X)[0]
+        X=np.stack(X)
+        
+    # MLR on original order
+    fit0, coefs0, inter0, r0, aic0 = mlr_sklearn(X,y,fit_intercept=fit_intercept)
+        
+    # Create random indices    
+    rand=np.zeros((length,n))
+    for nn in range(n):
+        for i in range(length):
+            rand[i,nn]=random.randint(0,length-1) 
+
+    # Sample data with replacement
+    if nvars==1:
+        schufx=np.zeros((length, n))
+    else:
+        schufx=np.zeros((length, n,nvars))
+    schufy=np.zeros((length, n))
+    for nn in range(n):
+        for ii in range(length):
+            if nvars==1:
+                schufx[ii,nn]=X[int(rand[ii,nn]),0]
+            else:
+                schufx[ii,nn,:]=X[int(rand[ii,nn]),:]
+            schufy[ii,nn]=y[int(rand[ii,nn])]
+        
+    # MLR on Sampled Data
+    fit   = np.zeros((length,n))
+    coefs = np.zeros((nvars,n))
+    inter = np.zeros((n,))
+    r     = np.zeros((n,))
+    aic   = np.zeros((n,))
+    for nn in tqdm(range(n)):
+        if nvars==1:
+            fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn] = mlr_sklearn(schufx[:,nn], schufy[:,nn],
+                                                                        fit_intercept=fit_intercept)
+        else:
+            fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn] = mlr_sklearn(schufx[:,nn,:], schufy[:,nn],
+                                                                        fit_intercept=fit_intercept)
+    
+    # Standard deviations from Bootstrap Distributions
+    coefs_std = np.std(coefs, axis=1)
+    inter_std = np.std(inter)
+    r_std     = np.std(r)
+    aic_std   = np.std(aic)
+    
+    # Set up all possible combination of signs
+    signs = np.zeros((2**(nvars+1),nvars+1))
+    for j in range(nvars+1):
+        count=((2**(nvars+1))/2**(j+1))
+        fir=np.zeros((int(count),)); fir.fill(1)
+        sec=np.zeros((int(count),)); sec.fill(-1)
+        signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
+
+    # Make all possible lines, combining the signs of uncertainties
+    XX=X.copy()
+    lines=np.zeros((len(y),2**(nvars+1)))
+    for i in range(2**(nvars+1)):
+        if nvars==1:
+            lines[:,i] = inter0 + signs[i,0]*inter_std + np.squeeze(XX*(coefs0[0] + signs[i,1]*coefs_std[0]))
+        else:
+            linterm = inter0 + signs[i,0]*inter_std
+            angterm = 0
+            for nn in np.arange(1,nvars+1):
+                angterm = angterm + XX[:,nn-1]*(coefs0[nn-1]+signs[i,nn]*coefs_std[nn-1])
+            lines[:,i] = linterm + angterm
+    combs=np.stack(lines,axis=0)
+    lo=np.min(combs, axis=1)
+    hi=np.max(combs, axis=1)
+    
+    
+    return coefs, inter, r, aic, fit, lo, hi
+
+
