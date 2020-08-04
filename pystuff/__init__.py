@@ -1951,7 +1951,7 @@ def AIC(fitted, obs, k):
 
 def mlr_sklearn(X,y,fit_intercept=True):
     '''
-    fit, coefs, inter, r, aic = mlr_sklearn(X,y,fit_intercept=True)
+    fit, coefs, inter, r, aic, rmse = mlr_sklearn(X,y,fit_intercept=True)
     Simple and *fast* MLR with sklearn.    
     '''
     import numpy as np
@@ -1970,17 +1970,13 @@ def mlr_sklearn(X,y,fit_intercept=True):
     inter = lr.intercept_
     fit = lr.predict(X)
     aic = AIC(fit, y, nvars)
-    if nvars>1:
-        r = np.corrcoef(fit,y)[0,1]
-    else:
-        lr = LinearRegression(fit_intercept=fit_intercept).fit(X/np.std(X), y/np.std(y))
-        r = lr.coef_[0]
-    
-    return fit, coefs, inter, r, aic
+    r = np.corrcoef(fit,y)[0,1]
+    rms = rmse(fit,y) 
+    return fit, coefs, inter, r, aic, rms
 
-def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True):
+def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True, stds=1, showProgress=True):
     '''
-    coefs, inter, r, aic, fit, lo, hi = bootsmlr_sklearn(X, y, n=1000, fit_intercept=True)
+    coefs, inter, r, aic, rmse, fit, lo, hi = bootsmlr_sklearn(X, y, n=1000, fit_intercept=True)
     Returns the bootstrap distributins of MLR statistics.
     This runs relatively fast due to the simple implementation of sklearn.
     As used in: /home/scripts/python/acdtools/acdtools/11_MLRCEM_ProcessBasedSpatialModel_Compare.ipynb
@@ -2000,7 +1996,7 @@ def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True):
         X=np.stack(X)
         
     # MLR on original order
-    fit0, coefs0, inter0, r0, aic0 = mlr_sklearn(X,y,fit_intercept=fit_intercept)
+    fit0, coefs0, inter0, r0, aic0, rmse0 = mlr_sklearn(X,y,fit_intercept=fit_intercept)
         
     # Create random indices    
     rand=np.zeros((length,n))
@@ -2017,7 +2013,7 @@ def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True):
     for nn in range(n):
         for ii in range(length):
             if nvars==1:
-                schufx[ii,nn]=X[int(rand[ii,nn]),0]
+                schufx[ii,nn]=X[int(rand[ii,nn])]
             else:
                 schufx[ii,nn,:]=X[int(rand[ii,nn]),:]
             schufy[ii,nn]=y[int(rand[ii,nn])]
@@ -2028,19 +2024,26 @@ def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True):
     inter = np.zeros((n,))
     r     = np.zeros((n,))
     aic   = np.zeros((n,))
-    for nn in tqdm(range(n)):
-        if nvars==1:
-            fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn] = mlr_sklearn(schufx[:,nn], schufy[:,nn],
-                                                                        fit_intercept=fit_intercept)
-        else:
-            fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn] = mlr_sklearn(schufx[:,nn,:], schufy[:,nn],
-                                                                        fit_intercept=fit_intercept)
+    rmse  = np.zeros((n,))
+    if showProgress:
+        for nn in tqdm(range(n)):
+            if nvars==1:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn], schufy[:,nn], fit_intercept=fit_intercept)
+            else:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn,:], schufy[:,nn], fit_intercept=fit_intercept)
+    else:
+        for nn in range(n):
+            if nvars==1:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn], schufy[:,nn], fit_intercept=fit_intercept)
+            else:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn,:], schufy[:,nn], fit_intercept=fit_intercept)
     
     # Standard deviations from Bootstrap Distributions
-    coefs_std = np.std(coefs, axis=1)
-    inter_std = np.std(inter)
-    r_std     = np.std(r)
-    aic_std   = np.std(aic)
+    coefs_std = stds*np.std(coefs, axis=1)
+    inter_std = stds*np.std(inter)
+    r_std     = stds*np.std(r)
+    aic_std   = stds*np.std(aic)
+    rmse_std  = stds*np.std(rmse)
     
     # Set up all possible combination of signs
     signs = np.zeros((2**(nvars+1),nvars+1))
@@ -2067,6 +2070,62 @@ def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True):
     hi=np.max(combs, axis=1)
     
     
-    return coefs, inter, r, aic, fit, lo, hi
+    return coefs, inter, r, aic, rmse, fit, lo, hi
 
+def bootstats(x, y=0, stats='r', n=1000, length=0, k=2):
+    '''
+    out = bootstats(x, y, stats='r')
+    
+    Bootstrapping of sample statistics. `stats` options are: r, aic, rmse, mean, std.
+    For aic, the number of parameters (INCLUDING the intercept) k is needed (default is k=2).
+    For mean and std, means and standard deviations are sampled from x. y is ignored.
+    '''
+    import random
+    import numpy as np
+    if length == 0:
+        length = len(x)
+
+    # Generate random positions
+    
+    rand=np.zeros((length,n))
+    for nn in range(n):
+        for i in range(length):
+            rand[i,nn]=random.randint(0,len(x)-1) # must sample from entire length
+
+    # Shuffle time series (actually, sample with replacement)             
+    schufx = np.zeros((length,n))
+    if stats!='mean' and stats!='std':
+        schufy = np.zeros((length,n))
+    for nn in range(n):
+        for ii in range(length):
+            schufx[ii,nn] = x[int(rand[ii,nn])]
+            if stats!='mean' and stats!='std':
+                schufy[ii,nn] = y[int(rand[ii,nn])]
+    
+    # Calculate statistics
+    out = np.zeros(n)
+    for nn in range(n):
+        if stats=='r':
+            out[nn] = np.corrcoef(schufx[:,nn],schufy[:,nn])[0,1]
+        elif stats=='aic':
+            out[nn] = AIC(schufx[:,nn],schufy[:,nn],k)
+        elif stats=='rmse':
+            out[nn] = rmse(schufx[:,nn],schufy[:,nn])
+        elif stats=='mean':
+            out[nn] = np.mean(schufx[:,nn])
+        elif stats=='std':
+            out[nn] = np.std(schufx[:,nn])
+        else:
+            print('Invalid stats. Options are:')
+            print('r, aic, rmse, mean, std')
+            return
+    return out
+
+def loo_predict_sklearn(X, coefs, inter):
+    import numpy as np
+    nvars = coefs.shape[0]
+    out = inter
+    for i in range(nvars):
+        out = out + X[i]*coefs[i]
+    return out
 
