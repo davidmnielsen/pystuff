@@ -19,7 +19,7 @@ Found a bug? Please let me know:
 davidnielsen@id.uff.br
 """
 
-def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
+def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False, std=False):
 
     """
     IN:
@@ -130,7 +130,10 @@ def bootscorr(x, y, n=10000, conflev=0.95, positions='new',details=False):
                 if rrinf>0 or rrsup<0:
                     minsig=tail*2
                     lev=(1-minsig)
-        
+       
+    if std:
+        return r0, np.std(corr)
+	 
     if details:
         return r0, lev, rinf, rsup, sig, rand
     else:
@@ -187,6 +190,11 @@ def ddpca(x):
 ##### 3) Remove Linear Trend #####
 
 def ddetrend(var,xvar=321943587416321,returnTrend=False,center=False):
+    
+    '''
+    THIS IS WRONG!!!!!!
+    USE `ddreg` INSTEAD
+    '''
 
     import numpy as np
     from scipy import stats
@@ -293,7 +301,7 @@ def getbox(coords,lat,lon,data,returnmap=False):
 
 ########## 5) Running mean
 
-def runmean(x,window=3,fillaround=False,weights=False):
+def runmean(x,window=3,fillaround=False,weights=False,nanignore=False):
     
     '''
     Calculates a running mean of a given series x, using a window
@@ -345,23 +353,41 @@ def runmean(x,window=3,fillaround=False,weights=False):
                     if type(weights) is not bool:                        
                         if t<len(weights):
                             # t is on the left edge
-                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                            if nanignore:
+                                x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow]*\
                                            weights[-2*halfwindow-1:-1],
-                                           axis=0)/np.sum(weights[-2*halfwindow-1:-1])
+                                           axis=0)/np.nansum(weights[-2*halfwindow-1:-1])
+                            else:
+                                x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[-2*halfwindow-1:-1],
+                                               axis=0)/np.sum(weights[-2*halfwindow-1:-1])
                         elif t>=(len(x)-len(weights)):
                             # t is on the right edge
-                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
-                                           weights[:2*halfwindow],
-                                           axis=0)/np.sum(weights[:2*halfwindow])
+                            if nanignore:
+                                x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[:2*halfwindow],
+                                               axis=0)/np.nansum(weights[:2*halfwindow])
+                            else:
+                                x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[:2*halfwindow],
+                                               axis=0)/np.sum(weights[:2*halfwindow])
                         else:
                             # t is not on the edges
                             midw=(len(weights)/2)+1
-                            x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
-                                           weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
-                                           np.sum(weights[int(midw-halfwindow):int(midw+halfwindow)])                       
+                            if nanignore:
+                                x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
+                                               np.nansum(weights[int(midw-halfwindow):int(midw+halfwindow)])
+                            else:
+                                x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow]*\
+                                               weights[int(midw-halfwindow):int(midw+halfwindow)],axis=0)/\
+                                               np.sum(weights[int(midw-halfwindow):int(midw+halfwindow)])                       
                     else:
                         # t not on the edges without weight
-                        x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                        if nanignore:
+                            x_rm[t]=np.nanmean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                        else:
+                            x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
                 else:
                     if halfwindow==1:
                         x_rm[t]=x[t]
@@ -374,24 +400,31 @@ def runmean(x,window=3,fillaround=False,weights=False):
             #print(halfwindow)
             if t>=halfwindow and t<(len(x)-halfwindow):
                 if type(weights) is bool:
-                    x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                    if nanignore:
+                        x_rm[t]=np.nanmean(x[t-halfwindow:t+halfwindow+1],axis=0)
+                    else:
+                        x_rm[t]=np.mean(x[t-halfwindow:t+halfwindow+1],axis=0)
                 else:
-                    x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.sum(weights)
+                    if nanignore:
+                        x_rm[t]=np.nansum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.nansum(weights)
+                    else:
+                        x_rm[t]=np.sum(x[t-halfwindow:t+halfwindow+1]*weights,axis=0)/np.sum(weights)
             else:
                 x_rm[t]=np.nan                
     return x_rm
 
-
 #################### 6) ddreg
     
-def ddreg(x,y,returnStats=False):
+def ddreg(x,y,returnStats=False, returnCoefs=False):
     import numpy as np
     from scipy import stats
     slope, inter, r, p, se = stats.linregress(x,y)
     trend=np.array(x)*slope+inter
     if returnStats:
         return slope, r, p    
-    else:    
+    elif returnCoefs:
+        return slope, inter, trend
+    else:
         return trend
 
 ################## 7) Standardize
@@ -519,20 +552,23 @@ def rhoAlt(datax,dt=1):
     r=np.corrcoef(datax[0:-dt-1],datax[dt:-1])
     return r[0,1]
 
-def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
-    # Creates nsim time series of rednoise of length=lenx, with lag-1 autocorrelation rho.
+def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False, 
+             mean=0, std=1, lo=-1, hi=1):
+    '''
+    Creates nsim time series of rednoise of length=lenx, with lag-1 autocorrelation rho.
+    For normally-distributed series, user can provide mean and std.
+    For uniformely-distributed series, user can provide low and high bounds.
+    '''
     import numpy as np
     srho=(1-(rho**2))**(0.5)
     red=np.zeros((lenx,nsim))
     white=np.zeros((lenx,nsim))
     for j in range(nsim):
-        for i in range(lenx-1):
+        for i in range(lenx):
             if dist=='normal':
-                #white[i+1,j]=white[i,j]+np.random.normal() # mu=0, std=1
-                white[i+1,j]=np.random.normal() # mu=0, std=1
+                white[i,j]=np.random.normal(loc=mean, scale=std) 
             elif dist=='uniform':
-                #white[i+1,j]=white[i,j]+np.random.uniform(-1,1)
-                white[i+1,j]=np.random.uniform(-1,1)
+                white[i,j]=np.random.uniform(low=lo, high=hi)
     for j in range(nsim):
         for i in range(lenx):
             if i==0:
@@ -543,6 +579,7 @@ def rednoise(lenx, rho, nsim=1000, dist='normal', returnWhite=False):
         return red, white
     else:
         return red
+
 
 # def theored(dt,rho,meanP,f):
 #     import numpy as np
@@ -683,7 +720,7 @@ def bestEns(ens,x,pctl=0.95):
     return np.transpose(bestens), np.nanmean(bestens,axis=0), count
     
 ################ MLR
-def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
+def mlr(X,y,stds=2,returnCoefs=False, printSummary=False, crossOrigin=False):
     '''
     This function calculates a Multiple Linear Regression (MLR) for any number of covariates (nvars)
     and the condidence intervals for given number of standar deviations (stds), 
@@ -704,7 +741,12 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
         nvars=np.shape(X)[1]
     
     # Fit model
-    xx     = sm.add_constant(X, prepend=True)
+    if crossOrigin:
+        xx = X.copy()
+        ncoefs = nvars
+    else:
+        xx = sm.add_constant(X, prepend=True)
+        ncoefs = nvars+1
     model  = smf.OLS(y,xx).fit()
     fitted = model._results.fittedvalues
     r2     = model._results.rsquared
@@ -713,30 +755,39 @@ def mlr(X,y,stds=2,returnCoefs=False, printSummary=False):
         print(model.summary())
 
     # Store coefs
-    coefs=np.zeros((nvars+1,2))
-    for i in range(nvars+1):
+    coefs=np.zeros((ncoefs,2))
+    for i in range(ncoefs):
         coefs[i,0]=model.params[i] 
         coefs[i,1]=model.bse[i]
        
     # Set up all possible combination of signs
-    signs = np.zeros((2**(nvars+1),nvars+1))
-    for j in range(nvars+1):
-        count=((2**(nvars+1))/2**(j+1))
+    signs = np.zeros((2**(ncoefs),ncoefs))
+    for j in range(ncoefs):
+        count=((2**(ncoefs))/2**(j+1))
         fir=np.zeros((int(count),)); fir.fill(1)
         sec=np.zeros((int(count),)); sec.fill(-1)
         signs[:,j]=npm.repmat(np.hstack([fir,sec]),1,2**(j)) 
     
     # Make all possible lines, combining the signs of uncertainties
-    lines=np.zeros((len(y),2**(nvars+1)))
-    for i in range(2**(nvars+1)):
+    lines=np.zeros((len(y),2**(ncoefs)))
+    for i in range(2**(ncoefs)): ############# THE FOLLOWING IS STILL INCORRECT
         if nvars==1:
-            lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+            if ~crossOrigin:
+                lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+            else:
+                lines[:,i] = X*(coefs[0,0]+signs[i,1]*stds*coefs[0,1])
         else:
-            linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
+            if ~crossOrigin:
+                linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
+                firstAngCoefPos = 1 
+            else:
+                linterm = 0
+                firstAngCoefPos = 0
             angterm = 0
-            for n in np.arange(1,nvars+1):
+            for n in np.arange(firstAngCoefPos,ncoefs):
                 angterm = angterm + X[:,n-1]*(coefs[n,0]+signs[i,n]*stds*coefs[n,1])
             lines[:,i] = linterm + angterm         
+    
     combs=np.stack(lines,axis=0)
     lo=np.min(combs, axis=1)
     up=np.max(combs, axis=1)
@@ -841,7 +892,7 @@ def mlr_predict(X,coefs,stds=2):
     lines=np.zeros((len(X),2**(nvars+1)))
     for i in range(2**(nvars+1)):
         if nvars==1:
-            lines[:,i] = coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1])
+            lines[:,i] = np.squeeze(coefs[0,0]+signs[i,0]*stds*coefs[0,1] + X*(coefs[1,0]+signs[i,1]*stds*coefs[1,1]))
         else:
             linterm = coefs[0,0]+signs[i,0]*stds*coefs[0,1]
             angterm = 0
@@ -854,6 +905,13 @@ def mlr_predict(X,coefs,stds=2):
     
     return pred, lo, up
 
+def loo_predict(X, coefs):
+    import numpy as np
+    nvars = np.shape(coefs)[0]-1
+    out = coefs[0,0] # the first coef is the intercept
+    for i in range(nvars):
+        out = out + X[i]*coefs[i+1,0]
+    return out
     
 def mlr_res(X,y):
     '''
@@ -901,18 +959,26 @@ def ddhist(x,vmin,vmax,binsize, zeronan=True, density=False):
 
 ################## order
 
-def order(x,y):
+def order(base,target, returnIndices=False):
     import numpy as np
-    yout=np.zeros(np.shape(y))
-    xout=np.sort(x)
-    for i in range(len(x)):
-        mini = np.min(x)
-        minipos = np.where(x==mini)[0]
-        yout[i]=y[minipos]
-        x[minipos]=10**10
-    return yout
-
-    
+    baseline=base.copy()
+    posi=np.argsort(baseline)
+    yout=target[posi]
+    '''
+    for i in range(len(baseline)):
+        mini = np.min(baseline)
+        minipos = np.where(baseline==mini)[0]
+        if len(minipos)>1:
+            minipos = np.min(minipos)
+        posi[i]=int(minipos)
+        yout[i]=target[minipos]
+        baseline[minipos]=10**10
+    '''
+    if returnIndices:
+        return yout, posi
+    else:
+        return yout
+ 
 ##################### Load Coastal Erosion Rates
 
 def loaderos(i,th=0.8,standardize=True):
@@ -1506,4 +1572,560 @@ def circleavg_nsidc(plat,plon,r,xgrid,ygrid,lat,lon,data,returnMap=False, return
         else:
             return mycircleavg
 
- 
+def deg2m(r, clat, clon):
+    '''
+    Converts from degree to meters, at a certain latitude.
+    '''
+    import pyproj
+    geod84 = pyproj.Geod(ellps='WGS84')
+    _, _, dist_m = geod84.inv(clon, clat,  clon+r, clat)
+    return dist_m
+
+def m2deg(r, clat, clon):
+    '''
+    Converts from meters to degree (departing from) a certain latitude, towards North.
+    '''
+    import pyproj
+    geod84 = pyproj.Geod(ellps='WGS84')
+    _, _, out_z = geod84.fwd(clon, clat, 90, r, radians=False)
+    return 90-abs(out_z)
+
+def isleap(year):
+    import calendar
+    return calendar.isleap(year)
+
+def scale_bar(ax, length=None, location=(0.7, 0.05), linewidth=3, color='y',fontsize=15):
+    """
+    ax is the axes to draw the scalebar on.
+    length is the length of the scalebar in km.
+    location is center of the scalebar in axis coordinates.
+    (ie. 0.5 is the middle of the plot)
+    linewidth is the thickness of the scalebar.
+    https://stackoverflow.com/questions/32333870/how-can-i-show-a-km-ruler-on-a-cartopy-matplotlib-plot
+    """
+    
+    import cartopy.crs as ccrs
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    #Get the limits of the axis in lat long
+    llx0, llx1, lly0, lly1 = ax.get_extent(ccrs.PlateCarree())
+    #Make tmc horizontally centred on the middle of the map,
+    #vertically at scale bar location
+    sbllx = (llx1 + llx0) / 2
+    sblly = lly0 + (lly1 - lly0) * location[1]
+    tmc = ccrs.TransverseMercator(sbllx, sblly)
+    #Get the extent of the plotted area in coordinates in metres
+    x0, x1, y0, y1 = ax.get_extent(tmc)
+    #Turn the specified scalebar location into coordinates in metres
+    sbx = x0 + (x1 - x0) * location[0]
+    sby = y0 + (y1 - y0) * location[1]
+
+    #Calculate a scale bar length if none has been given
+    #(Theres probably a more pythonic way of rounding the number but this works)
+    if not length: 
+        length = (x1 - x0) / 5000 #in km
+        ndim = int(np.floor(np.log10(length))) #number of digits in number
+        length = round(length, -ndim) #round to 1sf
+        #Returns numbers starting with the list
+        def scale_number(x):
+            if str(x)[0] in ['1', '2', '5']: return int(x)        
+            else: return scale_number(x - 10 ** ndim)
+        length = scale_number(length) 
+
+    #Generate the x coordinate for the ends of the scalebar
+    bar_xs = [sbx - length * 500, sbx + length * 500]
+    #Plot the scalebar
+    ax.plot(bar_xs, [sby, sby], transform=tmc, color=color, linewidth=linewidth)
+    #Plot the scalebar label
+    ax.text(sbx, sby, str(length) + ' km', transform=tmc,
+            horizontalalignment='center', verticalalignment='bottom', color=color, fontsize=fontsize)
+
+def normBetween(x, objMin=0, objMax=365):
+    import numpy as np
+    xMin = np.nanmin(x)
+    xMax = np.nanmax(x)
+    out = np.zeros(np.shape(x))
+    out.fill(np.nan)
+    for i in range(len(x)):
+        out[i] = ((x[i]-xMin)*(objMax-objMin))/(xMax-xMin) + objMin
+    return out
+
+def rmse(x,y):
+    import numpy as np
+    return np.sqrt(np.nansum((x-y)**2))
+
+def bootSeries(x, y, n=1000, length=0):
+    '''
+    Takes as input two time series, x and y.
+    Generated time series of given length, sampled with replacement from x and y.
+    Default length is len(x), which should be equal to len(y).
+    '''
+    import numpy as np
+    if length == 0:
+        length = len(x)
+    else:
+        
+        # Generate random positions
+        import random
+        rand=np.zeros((length,n))
+        for nn in range(n):
+            for i in range(length):
+                rand[i,nn]=random.randint(0,len(x)-1) # must sample from entire length
+        
+        # Shuffle time series (actually, sample with replacement)             
+        schufx = np.zeros((length,n))
+        schufy = np.zeros((length,n))
+        for nn in range(n):
+            for ii in range(length):
+                schufx[ii,nn] = x[int(rand[ii,nn])]
+                schufy[ii,nn] = y[int(rand[ii,nn])]
+        return schufx, schufy 
+
+def extendSeries(x, xTime, longTime, allowNegatives=False, returnLongTrend=False):
+    '''
+    Extends time series x, which comprehends xTime, back in time to cover longTime.
+    Generated time series respects the lag-1 correlation (red noise), mean, std and trend of the
+    given time series x. 
+    x must not have NaN's.
+    Input:
+        xTime = np.arange(1980,2020)
+        longTime = np.arange(1950,2020)
+        x = any time series with length = len(xTime)
+    Output:
+        xLong = a time series identical to x during xTime, and randomly generated
+        mantaining its same statistical characteristics in the remaining years.
+    '''
+    import numpy as np
+    
+    redTime = np.arange(longTime[0],xTime[0])
+    
+    lenTimeX = len(xTime)
+    lenLongTime = len(longTime)
+    lenRedTime = len(redTime)
+    
+    xTrend  = np.zeros((lenLongTime)); xTrend.fill(np.nan)
+    xDt     = np.zeros((lenLongTime)); xDt.fill(np.nan)
+    #xRed    = np.zeros((lenRedTime)); xRed.fill(np.nan)
+    xLong   = np.zeros((lenLongTime)); xLong.fill(np.nan)
+    
+    # Get the trend of x and extend it back during longTime
+    a, b, t = ddreg(xTime, x, returnCoefs=True)
+    xTrend = a*longTime + b
+    if ~allowNegatives:
+        xTrend[xTrend<0]=0
+        
+    # Detrend the real time series 
+    start = lenLongTime-np.where(longTime==xTime[0])[0]
+    xDt[-int(start):] = x - xTrend[-int(start):]  + np.mean(x)
+    
+    # Create red noise time series with std of original detrended series
+    xRed = rednoise(lenRedTime, rho(xDt[~np.isnan(xDt)]), nsim=1,  mean=0,
+               std = np.std(xDt[~np.isnan(xDt)]))
+    
+    # Give it the correct mean
+    targetMean = np.mean(xDt[~np.isnan(xDt)])
+    redMean = np.mean(xRed)
+    if redMean>targetMean:
+        xRed = xRed - abs(redMean - targetMean)
+    elif redMean<targetMean:
+        xRed = xRed + abs(redMean - targetMean)
+        
+    # Put them together
+    fullDt = np.hstack((np.squeeze(xRed), xDt[~np.isnan(xDt)]))
+    fullWt = fullDt + xTrend
+    fullWt[xTrend==0] = fullWt[xTrend==0] - np.mean(fullWt[xTrend==0])
+    fullWt[xTrend>0]  = fullWt[xTrend>0]  - np.mean(fullDt[xTrend!=0])
+    if ~allowNegatives:
+        fullWt[fullWt<0] = 0
+   
+    # Make sure the last bit to be identical (correct for minor differences)
+    fullWt[-int(start):] = x 
+     
+    if returnLongTrend:
+        return fullWt, xTrend
+    else:
+        return fullWt
+
+
+def removeAfromB(A, B):
+    import numpy as np
+    trend = ddreg(A, B)
+    return B -trend + np.mean(B)
+
+def scoresFromPCA(X, eigenvecs, means=[0], stds=[0]):
+    '''
+    Returns the scores (PCA time series) for given data X and eigenvectors.
+    Means and Stds of X are optional, in case X is the same for PCA, 
+    but necessary if applying the transformation to other data.
+    '''
+    import numpy as np
+    if len(means)==1:
+        means = np.mean(X,axis=0)
+    if len(stds)==1:
+        stds = np.std(X,axis=0)
+    pcs = np.zeros((X.shape))
+    for p in range(X.shape[1]): # pc
+        for v in range(X.shape[1]): # var
+            pcs[:,p] = pcs[:,p] + ((X[:,v]-means[v])/stds[v])*eigenvecs[v,p]
+    return pcs
+
+def boots_r2(x, y, n=10000, pval=0.05, positions='new'):
+
+    """
+    Better version of bootscorr, for R**2.
+    mu, std, lo, hi = boots_r2(x, y, n=10000, pval=0.05, positions='new')
+    """
+
+    import numpy as np
+    length=np.shape(x)[0] # time (or length) must be in the first dimension of x
+    if length!=np.shape(y)[0]:
+        print('ERROR: X and Y must have the same length.')
+        print('Given dimensions were:')
+        print('np.shape(x)=%s' %str(np.shape(x)))
+        print('np.shape(y)=%s' %str(np.shape(y)))
+        return
+    else:
+        
+        # 1) Check given parameters
+        if type(positions)==str:
+            if positions=='new':
+                # Create random positions
+                import random
+                rand=np.zeros((length,n))
+                for nn in range(n):
+                    for i in range(length):
+                        rand[i,nn]=random.randint(0,length-1) 
+            else:
+                print('ERROR: Invalid position argument.')
+                print('Must be eiter "new" or a numpy-array with shape (len(x),n)')
+                return
+        else:
+            if len(x)!=np.shape(positions)[0]:
+                print('ERROR: X, Y and given positions[0] must have the same length.')
+                print('Given dimensions were:')
+                print('np.shape(x)=%s' %str(np.shape(x)))
+                print('np.shape(positions)[0]=%s' %str(np.shape(positions[0])))
+                return
+            elif n>np.shape(positions)[1]:
+                print('ERROR: n must be <= np.shape(positions)[1]')
+                print('Given dimensions were:')
+                print('np.shape(n)=%s' %str(np.shape(n)))
+                print('np.shape(positions)[1]=%s' %str(np.shape(positions[1])))
+                return
+            else:
+                given_n=np.shape(positions)[1]
+                rand=positions
+
+        # 2) Schufle data
+        schufx=np.zeros((length,n))
+        schufy=np.zeros((length,n))
+        for nn in range(n):
+            for ii in range(len(x)):
+                schufx[ii,nn]=x[int(rand[ii,nn])]
+                schufy[ii,nn]=y[int(rand[ii,nn])]
+
+        # 3) Calculate correlations
+        r0=np.corrcoef(x,y)[0,1]
+        corr=np.zeros(n)
+        for nn in range(n):
+            corr[nn]=np.corrcoef(schufx[:,nn],schufy[:,nn])[0,1]**2
+
+        # 4) Params
+        mu = np.mean(corr)
+        std = np.std(corr)
+        
+        # 5) Quantiles
+        lo = np.sort(corr)[round(len(corr)*pval)]
+        hi = np.sort(corr)[round(len(corr)*(1-pval))]
+       
+        return mu, std, lo, hi
+
+def boots_r2_sklearn(x, y, n=10000, pval=0.05, positions='new'):
+
+    """
+    Using the sklearn version to allow for negative R**2 values.
+    Better version of bootscorr, for R**2.
+    mu, std, lo, hi = boots_r2_sklearn(x, y, n=10000, pval=0.05, positions='new')
+
+    """
+
+    import numpy as np
+    from sklearn import metrics
+    
+    length=np.shape(x)[0] # time (or length) must be in the first dimension of x
+    if length!=np.shape(y)[0]:
+        print('ERROR: X and Y must have the same length.')
+        print('Given dimensions were:')
+        print('np.shape(x)=%s' %str(np.shape(x)))
+        print('np.shape(y)=%s' %str(np.shape(y)))
+        return
+    else:
+        
+        # 1) Check given parameters
+        if type(positions)==str:
+            if positions=='new':
+                # Create random positions
+                import random
+                rand=np.zeros((length,n))
+                for nn in range(n):
+                    for i in range(length):
+                        rand[i,nn]=random.randint(0,length-1) 
+            else:
+                print('ERROR: Invalid position argument.')
+                print('Must be eiter "new" or a numpy-array with shape (len(x),n)')
+                return
+        else:
+            if len(x)!=np.shape(positions)[0]:
+                print('ERROR: X, Y and given positions[0] must have the same length.')
+                print('Given dimensions were:')
+                print('np.shape(x)=%s' %str(np.shape(x)))
+                print('np.shape(positions)[0]=%s' %str(np.shape(positions[0])))
+                return
+            elif n>np.shape(positions)[1]:
+                print('ERROR: n must be <= np.shape(positions)[1]')
+                print('Given dimensions were:')
+                print('np.shape(n)=%s' %str(np.shape(n)))
+                print('np.shape(positions)[1]=%s' %str(np.shape(positions[1])))
+                return
+            else:
+                given_n=np.shape(positions)[1]
+                rand=positions
+
+        # 2) Schufle data
+        schufx=np.zeros((length,n))
+        schufy=np.zeros((length,n))
+        for nn in range(n):
+            for ii in range(len(x)):
+                schufx[ii,nn]=x[int(rand[ii,nn])]
+                schufy[ii,nn]=y[int(rand[ii,nn])]
+
+        # 3) Calculate correlations
+        r0=np.corrcoef(x,y)[0,1]
+        corr=np.zeros(n)
+        for nn in range(n):
+            corr[nn]=metrics.r2_score(schufx[:,nn],schufy[:,nn])
+
+        # 4) Params
+        mu = np.mean(corr)
+        std = np.std(corr)
+        
+        # 5) Quantiles
+        lo = np.sort(corr)[round(len(corr)*pval)]
+        hi = np.sort(corr)[round(len(corr)*(1-pval))]
+       
+        return mu, std, lo, hi
+
+def varsMemory():
+    import sys
+    ipython_vars = ['In', 'Out', 'exit', 'quit', 'get_ipython', 'ipython_vars']
+    out = sorted([(x, sys.getsizeof(globals().get(x))) for x in dir() if not x.startswith('_') and x not in sys.modules and x not in ipython_vars], key=lambda x: x[1], reverse=True)
+    return out
+
+def reload(name):
+    import importlib
+    importlib.reload(name)
+
+def mad(x):
+    import numpy as np
+    return np.mean(abs(x-np.median(x)))
+
+
+def rss(fitted, obs):
+    '''
+    Residual Sum of Squares (RSS) between two functions.
+    rss = rss(y, x)
+    '''
+    import numpy as np
+    return np.sum((fitted-obs)**2)
+
+def AIC(fitted, obs, k):
+    '''
+    Akaike's Information Criterion (AIC) based on Residual Sum of Squares (RSS)
+    aic = AIC(fitted, obs, k)
+    k is the number of intependent variables, INCLUDING the intercept in this case.
+    '''
+    import numpy as np
+    n = len(obs)
+    return n*np.log(rss(fitted, obs)/n) + 2*k
+
+def mlr_sklearn(X,y,fit_intercept=True):
+    '''
+    fit, coefs, inter, r, aic, rmse = mlr_sklearn(X,y,fit_intercept=True)
+    Simple and *fast* MLR with sklearn.    
+    '''
+    import numpy as np
+    from sklearn.linear_model import LinearRegression
+    
+    # Take care of dimensions
+    if np.size(np.shape(X))==1:
+        nvars=1
+        #X = X.reshape(-1,1)
+        X = X[:,np.newaxis]
+    else:
+        nvars = X.shape[1]
+    # MLR fit and results
+    lr = LinearRegression(fit_intercept=fit_intercept).fit(X, y)
+    coefs = lr.coef_
+    inter = lr.intercept_
+    fit = lr.predict(X)
+    aic = AIC(fit, y, nvars)
+    r = np.corrcoef(fit,y)[0,1]
+    rms = rmse(fit,y) 
+    return fit, coefs, inter, r, aic, rms
+
+def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True, stds=1, showProgress=True):
+    '''
+    coefs, inter, r, aic, rmse, fit, lo, hi = bootsmlr_sklearn(X, y, n=1000, fit_intercept=True)
+    Returns the bootstrap distributins of MLR statistics.
+    This runs relatively fast due to the simple implementation of sklearn.
+    As used in: /home/scripts/python/acdtools/acdtools/11_MLRCEM_ProcessBasedSpatialModel_Compare.ipynb
+    '''
+    from tqdm.auto import tqdm
+    import numpy as np
+    import numpy.matlib
+    import random
+    
+    # Check the number of covariates
+    if np.size(np.shape(X))==1:
+        nvars=1
+        length=np.shape(X)[0]
+    elif np.size(np.shape(X))>1:
+        nvars=np.shape(X)[1]
+        length=np.shape(X)[0]
+        X=np.stack(X)
+        
+    # MLR on original order
+    fit0, coefs0, inter0, r0, aic0, rmse0 = mlr_sklearn(X,y,fit_intercept=fit_intercept)
+        
+    # Create random indices    
+    rand=np.zeros((length,n))
+    for nn in range(n):
+        for i in range(length):
+            rand[i,nn]=random.randint(0,length-1) 
+
+    # Sample data with replacement
+    if nvars==1:
+        schufx=np.zeros((length, n))
+    else:
+        schufx=np.zeros((length, n,nvars))
+    schufy=np.zeros((length, n))
+    for nn in range(n):
+        for ii in range(length):
+            if nvars==1:
+                schufx[ii,nn]=X[int(rand[ii,nn])]
+            else:
+                schufx[ii,nn,:]=X[int(rand[ii,nn]),:]
+            schufy[ii,nn]=y[int(rand[ii,nn])]
+        
+    # MLR on Sampled Data
+    fit   = np.zeros((length,n))
+    coefs = np.zeros((nvars,n))
+    inter = np.zeros((n,))
+    r     = np.zeros((n,))
+    aic   = np.zeros((n,))
+    rmse  = np.zeros((n,))
+    if showProgress:
+        for nn in tqdm(range(n)):
+            if nvars==1:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn], schufy[:,nn], fit_intercept=fit_intercept)
+            else:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn,:], schufy[:,nn], fit_intercept=fit_intercept)
+    else:
+        for nn in range(n):
+            if nvars==1:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn], schufy[:,nn], fit_intercept=fit_intercept)
+            else:
+                fit[:,nn], coefs[:,nn], inter[nn], r[nn], aic[nn], rmse[nn] = mlr_sklearn(schufx[:,nn,:], schufy[:,nn], fit_intercept=fit_intercept)
+    
+    # Standard deviations from Bootstrap Distributions
+    coefs_std = stds*np.std(coefs, axis=1)
+    inter_std = stds*np.std(inter)
+    r_std     = stds*np.std(r)
+    aic_std   = stds*np.std(aic)
+    rmse_std  = stds*np.std(rmse)
+    
+    # Set up all possible combination of signs
+    signs = np.zeros((2**(nvars+1),nvars+1))
+    for j in range(nvars+1):
+        count=((2**(nvars+1))/2**(j+1))
+        fir=np.zeros((int(count),)); fir.fill(1)
+        sec=np.zeros((int(count),)); sec.fill(-1)
+        signs[:,j]=np.matlib.repmat(np.hstack([fir,sec]),1,2**(j)) 
+
+    # Make all possible lines, combining the signs of uncertainties
+    XX=X.copy()
+    lines=np.zeros((len(y),2**(nvars+1)))
+    for i in range(2**(nvars+1)):
+        if nvars==1:
+            lines[:,i] = inter0 + signs[i,0]*inter_std + np.squeeze(XX*(coefs0[0] + signs[i,1]*coefs_std[0]))
+        else:
+            linterm = inter0 + signs[i,0]*inter_std
+            angterm = 0
+            for nn in np.arange(1,nvars+1):
+                angterm = angterm + XX[:,nn-1]*(coefs0[nn-1]+signs[i,nn]*coefs_std[nn-1])
+            lines[:,i] = linterm + angterm
+    combs=np.stack(lines,axis=0)
+    lo=np.min(combs, axis=1)
+    hi=np.max(combs, axis=1)
+    
+    
+    return coefs, inter, r, aic, rmse, fit, lo, hi
+
+def bootstats(x, y=0, stats='r', n=1000, length=0, k=2):
+    '''
+    out = bootstats(x, y, stats='r')
+    
+    Bootstrapping of sample statistics. `stats` options are: r, aic, rmse, mean, std.
+    For aic, the number of parameters (INCLUDING the intercept) k is needed (default is k=2).
+    For mean and std, means and standard deviations are sampled from x. y is ignored.
+    '''
+    import random
+    import numpy as np
+    if length == 0:
+        length = len(x)
+
+    # Generate random positions
+    
+    rand=np.zeros((length,n))
+    for nn in range(n):
+        for i in range(length):
+            rand[i,nn]=random.randint(0,len(x)-1) # must sample from entire length
+
+    # Shuffle time series (actually, sample with replacement)             
+    schufx = np.zeros((length,n))
+    if stats!='mean' and stats!='std':
+        schufy = np.zeros((length,n))
+    for nn in range(n):
+        for ii in range(length):
+            schufx[ii,nn] = x[int(rand[ii,nn])]
+            if stats!='mean' and stats!='std':
+                schufy[ii,nn] = y[int(rand[ii,nn])]
+    
+    # Calculate statistics
+    out = np.zeros(n)
+    for nn in range(n):
+        if stats=='r':
+            out[nn] = np.corrcoef(schufx[:,nn],schufy[:,nn])[0,1]
+        elif stats=='aic':
+            out[nn] = AIC(schufx[:,nn],schufy[:,nn],k)
+        elif stats=='rmse':
+            out[nn] = rmse(schufx[:,nn],schufy[:,nn])
+        elif stats=='mean':
+            out[nn] = np.mean(schufx[:,nn])
+        elif stats=='std':
+            out[nn] = np.std(schufx[:,nn])
+        else:
+            print('Invalid stats. Options are:')
+            print('r, aic, rmse, mean, std')
+            return
+    return out
+
+def loo_predict_sklearn(X, coefs, inter):
+    import numpy as np
+    nvars = coefs.shape[0]
+    out = inter
+    for i in range(nvars):
+        out = out + X[i]*coefs[i]
+    return out
+

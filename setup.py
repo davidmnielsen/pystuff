@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pystuff",
-    version="0.0.6",
+    version="0.0.7",
     author="David Nielsen",
     author_email="davidnielsen@id.uff.br",
     description="Some useful functions for data analysis in python.",

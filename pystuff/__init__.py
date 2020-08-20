@@ -937,6 +937,24 @@ def nospines(ax):
     ax.yaxis.set_ticks_position('left')
     ax.xaxis.set_ticks_position('bottom')
     
+def noaxes(ax):
+    import matplotlib.pyplot as plt
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    plt.tick_params(
+    axis='x',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    bottom=False,      # ticks along the bottom edge are off
+    top=False,         # ticks along the top edge are off
+    labelbottom=False)
+    plt.tick_params(
+    axis='y',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    left=False,      # ticks along the bottom edge are off
+    labelleft=False)
+
 def leg(loc='best', fontsize='small', frameon=False):
     import matplotlib.pyplot as plt
     plt.legend(loc=loc, frameon=frameon, fontsize=fontsize)
@@ -1949,7 +1967,7 @@ def AIC(fitted, obs, k):
     n = len(obs)
     return n*np.log(rss(fitted, obs)/n) + 2*k
 
-def mlr_sklearn(X,y,fit_intercept=True):
+def mlr_sklearn(X,y,fit_intercept=True,returnOnlySlope=False):
     '''
     fit, coefs, inter, r, aic, rmse = mlr_sklearn(X,y,fit_intercept=True)
     Simple and *fast* MLR with sklearn.    
@@ -1966,13 +1984,16 @@ def mlr_sklearn(X,y,fit_intercept=True):
         nvars = X.shape[1]
     # MLR fit and results
     lr = LinearRegression(fit_intercept=fit_intercept).fit(X, y)
-    coefs = lr.coef_
-    inter = lr.intercept_
-    fit = lr.predict(X)
-    aic = AIC(fit, y, nvars)
-    r = np.corrcoef(fit,y)[0,1]
-    rms = rmse(fit,y) 
-    return fit, coefs, inter, r, aic, rms
+    if returnOnlySlope:
+        return lr.coef_[0]
+    else:
+        coefs = lr.coef_
+        inter = lr.intercept_
+        fit = lr.predict(X)
+        aic = AIC(fit, y, nvars)
+        r = np.corrcoef(fit,y)[0,1]
+        rms = rmse(fit,y) 
+        return fit, coefs, inter, r, aic, rms
 
 def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True, stds=1, showProgress=True):
     '''
@@ -2072,7 +2093,7 @@ def bootsmlr_sklearn(X, y, n=10000, fit_intercept=True, stds=1, showProgress=Tru
     
     return coefs, inter, r, aic, rmse, fit, lo, hi
 
-def bootstats(x, y=0, stats='r', n=1000, length=0, k=2):
+def bootstats(x, y=0, stats='r', n=1000, length=0, k=2, weights=0, showStatus=False, prop=0.5):
     '''
     out = bootstats(x, y, stats='r')
     
@@ -2086,7 +2107,7 @@ def bootstats(x, y=0, stats='r', n=1000, length=0, k=2):
         length = len(x)
 
     # Generate random positions
-    
+
     rand=np.zeros((length,n))
     for nn in range(n):
         for i in range(length):
@@ -2094,17 +2115,26 @@ def bootstats(x, y=0, stats='r', n=1000, length=0, k=2):
 
     # Shuffle time series (actually, sample with replacement)             
     schufx = np.zeros((length,n))
-    if stats!='mean' and stats!='std':
+    if stats!='mean' and stats!='std' and stats!='weighted_mean':
         schufy = np.zeros((length,n))
+    if stats=='alpha_ta' or stats=='alpha_td' or stats=='weighted_mean':
+        schufw = np.zeros((length,n))
     for nn in range(n):
         for ii in range(length):
             schufx[ii,nn] = x[int(rand[ii,nn])]
-            if stats!='mean' and stats!='std':
+            if stats!='mean' and stats!='std' and stats!='weighted_mean':
                 schufy[ii,nn] = y[int(rand[ii,nn])]
-    
+            if stats=='alpha_ta' or stats=='alpha_td' or stats=='weighted_mean':
+                schufw[ii,nn] = weights[int(rand[ii,nn])]
+
     # Calculate statistics
     out = np.zeros(n)
-    for nn in range(n):
+    if showStatus:
+        from tqdm.auto import tqdm
+        myiterator = tqdm(range(n))
+    else:
+        myiterator = range(n)
+    for nn in myiterator:
         if stats=='r':
             out[nn] = np.corrcoef(schufx[:,nn],schufy[:,nn])[0,1]
         elif stats=='aic':
@@ -2115,11 +2145,24 @@ def bootstats(x, y=0, stats='r', n=1000, length=0, k=2):
             out[nn] = np.mean(schufx[:,nn])
         elif stats=='std':
             out[nn] = np.std(schufx[:,nn])
+        elif stats=='weighted_mean':
+            out[nn] = np.average(schufx[:,nn], weights=schufw[:,nn])
+        elif stats=='ratio_of_means':
+            out[nn] = np.mean(schufx[:,nn])/np.mean(schufy[:,nn])
+        elif stats=='alpha_ta':
+            out[nn] = np.average(schufx[:,nn],weights=schufw[:,nn])*prop/\
+                      np.average(schufy[:,nn],weights=schufw[:,nn])
+        elif stats=='alpha_td':
+            out[nn] = np.average(schufx[:,nn],weights=schufw[:,nn])*(1-prop)/\
+                      np.average(schufy[:,nn],weights=schufw[:,nn])
+        elif stats=='reg':
+            out[nn] = mlr_sklearn(schufx[:,nn],schufy[:,nn],fit_intercept=True,returnOnlySlope=True)
         else:
             print('Invalid stats. Options are:')
-            print('r, aic, rmse, mean, std')
+            print('r, reg, aic, rmse, mean, std, weighted_mean, ratio_of_means, alpha_ta, alpha_td')
             return
     return out
+
 
 def loo_predict_sklearn(X, coefs, inter):
     import numpy as np
@@ -2128,4 +2171,51 @@ def loo_predict_sklearn(X, coefs, inter):
     for i in range(nvars):
         out = out + X[i]*coefs[i]
     return out
+
+def weighted_mean_std(values, w, axis=0):
+    import numpy as np
+    average = np.average(values, weights=w, axis=axis)
+    WeightedSumofSquareDifs = 0
+    for i in range(np.shape(values)[axis]):
+        WeightedSumofSquareDifs = WeightedSumofSquareDifs + ((np.take(values, i, axis=axis)-average)**2)*w[i]
+    std = (WeightedSumofSquareDifs/np.sum(w))**0.5
+    return average, std
+
+def import_ps():
+    global ps
+    import sys
+    sys.path.append('/home/zmaw/u241292/scripts/python/pystuff')
+    import pystuff as ps
+    return
+
+def import_acd():
+    global acd
+    import sys
+    sys.path.append('/home/zmaw/u241292/scripts/python/acdtools/acdtools')
+    import acdtools as acd
+    return 
+
+def adjust2dist(xmod,xobs=[999,],xmodmu=999,xmodse=999,xobsmu=999,xobsse=999, forcePositive=False):
+    '''
+    Takes xobs and xmod.
+    Return xmod, whose mean and std are ajusted to be identical to those of xobs.
+    This is used for correcting a model's bias w.r.t. observations. 
+    '''
+    import numpy as np
+    if len(xobs)>1:
+        out = xmod*np.nanstd(xobs)/np.nanstd(xmod)
+        out = out+np.nanmean(xobs)-np.nanmean(out)
+    else:
+        out = (xobsse/xmodse)*(xmod - xmodmu) + xobsmu
+        
+    if forcePositive:
+        out[out<0]=0
+    return out
+
+def cellwidth(w=69):
+    wstr=str(w)
+    from IPython.core.display import display, HTML
+    display(HTML('<style>.container { width:'+wstr+'% !important; }</style>'))
+    display(HTML("<style>.output_result { max-width:"+wstr+"% !important; }</style>"))
+
 
